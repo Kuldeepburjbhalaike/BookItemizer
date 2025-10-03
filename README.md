@@ -10,7 +10,7 @@ It helps Wikidata editors quickly create structured items for books, articles, a
   - *Work* item (`instance of: written work` → `Q47461344`)
   - *Edition* item (`instance of: edition` → `Q3331189`)
 - **Auto-generated labels and descriptions**:
-  - English + optional second language (Punjabi, Hindi, Urdu, and more)
+  - English + your local language (Punjabi, Hindi, Urdu, and more)
   - Descriptions like `work by [author]` or `[year] edition of work by [author]`
 - **Author handling**:
   - Uses **P50 (author)** if Wikidata Q-ID is provided  
@@ -18,7 +18,7 @@ It helps Wikidata editors quickly create structured items for books, articles, a
 - **Language support**:
   - Choose from common languages (Punjabi, Hindi, Urdu, Bengali, Tamil, etc.)
   - Automatically adds `P407` (language of work)  
-  - Adds `P282` (script) for Punjabi/Gurmukhi
+  - Adds `P282` (script)
 - **Publication year (P577)**:
   - Adds edition-specific publication date if provided
 - **One-click copy**:
@@ -26,14 +26,10 @@ It helps Wikidata editors quickly create structured items for books, articles, a
 
 ## 🚀 Getting Started
 
-1. Clone or download the repository.
-2. Open `index.html` in your browser — no build process needed.
-3. Fill in:
-   - **English label** (required)
-   - **Author name** (required)
-   - Optional fields: author Q-ID, local language label, publication year.
-4. Copy the generated QuickStatements.
-5. Paste into [QuickStatements tool](https://quickstatements.toolforge.org/) to create items on Wikidata.
+1. Open `https://kuldeepburjbhalaike.github.io/BookItemizer/` in your browser — no build process needed.
+2. Fill some basic fields.
+3. Copy the generated QuickStatements.
+4. Paste into [QuickStatements tool](https://quickstatements.toolforge.org/) or [QuickStatements tool 3.0](https://qs-dev.toolforge.org/) to create items on Wikidata.
 
 ## 📝 Example Output
 
