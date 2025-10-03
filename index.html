@@ -25,36 +25,41 @@
             editionP31: 'Q3331189',
             secondLangCode: 'pa',
             secondLangLabel: '',
-            secondLangAuthorName: ''
+            secondLangAuthorName: '',
+            punjabiScript: 'Q689894'
           });
           
           const [copied, setCopied] = useState(false);
 
-          // Common language codes for Wikidata with their Q-IDs
           const languages = [
-            { code: 'pa', name: 'Punjabi (ਪੰਜਾਬੀ)', qid: 'Q58635', script: 'Q689894' },
-            { code: 'hi', name: 'Hindi (हिन्दी)', qid: 'Q1568', script: null },
-            { code: 'ur', name: 'Urdu (اردو)', qid: 'Q1617', script: null },
-            { code: 'bn', name: 'Bengali (বাংলা)', qid: 'Q9610', script: null },
-            { code: 'ta', name: 'Tamil (தமிழ்)', qid: 'Q5885', script: null },
-            { code: 'te', name: 'Telugu (తెలుగు)', qid: 'Q8097', script: null },
-            { code: 'mr', name: 'Marathi (मराठी)', qid: 'Q1571', script: null },
-            { code: 'gu', name: 'Gujarati (ગુજરાતી)', qid: 'Q5137', script: null },
-            { code: 'kn', name: 'Kannada (ಕನ್ನಡ)', qid: 'Q33673', script: null },
-            { code: 'ml', name: 'Malayalam (മലയാളം)', qid: 'Q36236', script: null },
-            { code: 'or', name: 'Odia (ଓଡ଼ିଆ)', qid: 'Q33810', script: null },
-            { code: 'as', name: 'Assamese (অসমীয়া)', qid: 'Q29401', script: null },
-            { code: 'sa', name: 'Sanskrit (संस्कृतम्)', qid: 'Q11059', script: null },
-            { code: 'es', name: 'Spanish (Español)', qid: 'Q1321', script: null },
-            { code: 'fr', name: 'French (Français)', qid: 'Q150', script: null },
-            { code: 'de', name: 'German (Deutsch)', qid: 'Q188', script: null },
-            { code: 'zh', name: 'Chinese (中文)', qid: 'Q7850', script: null },
-            { code: 'ja', name: 'Japanese (日本語)', qid: 'Q5287', script: null },
-            { code: 'ko', name: 'Korean (한국어)', qid: 'Q9176', script: null },
-            { code: 'ar', name: 'Arabic (العربية)', qid: 'Q13955', script: null },
-            { code: 'ru', name: 'Russian (Русский)', qid: 'Q7737', script: null },
-            { code: 'pt', name: 'Portuguese (Português)', qid: 'Q5146', script: null },
-            { code: 'it', name: 'Italian (Italiano)', qid: 'Q652', script: null }
+            { code: 'pa', name: 'Punjabi (ਪੰਜਾਬੀ)', qid: 'Q58635', hasScriptOption: true },
+            { code: 'hi', name: 'Hindi (हिन्दी)', qid: 'Q1568', hasScriptOption: false },
+            { code: 'ur', name: 'Urdu (اردو)', qid: 'Q1617', hasScriptOption: false },
+            { code: 'bn', name: 'Bengali (বাংলা)', qid: 'Q9610', hasScriptOption: false },
+            { code: 'ta', name: 'Tamil (தமிழ்)', qid: 'Q5885', hasScriptOption: false },
+            { code: 'te', name: 'Telugu (తెలుగు)', qid: 'Q8097', hasScriptOption: false },
+            { code: 'mr', name: 'Marathi (मराठी)', qid: 'Q1571', hasScriptOption: false },
+            { code: 'gu', name: 'Gujarati (ગુજરાતી)', qid: 'Q5137', hasScriptOption: false },
+            { code: 'kn', name: 'Kannada (ಕನ್ನಡ)', qid: 'Q33673', hasScriptOption: false },
+            { code: 'ml', name: 'Malayalam (മലയാളം)', qid: 'Q36236', hasScriptOption: false },
+            { code: 'or', name: 'Odia (ଓଡ଼ିଆ)', qid: 'Q33810', hasScriptOption: false },
+            { code: 'as', name: 'Assamese (অসমীয়া)', qid: 'Q29401', hasScriptOption: false },
+            { code: 'sa', name: 'Sanskrit (संस्कृतम्)', qid: 'Q11059', hasScriptOption: false },
+            { code: 'es', name: 'Spanish (Español)', qid: 'Q1321', hasScriptOption: false },
+            { code: 'fr', name: 'French (Français)', qid: 'Q150', hasScriptOption: false },
+            { code: 'de', name: 'German (Deutsch)', qid: 'Q188', hasScriptOption: false },
+            { code: 'zh', name: 'Chinese (中文)', qid: 'Q7850', hasScriptOption: false },
+            { code: 'ja', name: 'Japanese (日本語)', qid: 'Q5287', hasScriptOption: false },
+            { code: 'ko', name: 'Korean (한국어)', qid: 'Q9176', hasScriptOption: false },
+            { code: 'ar', name: 'Arabic (العربية)', qid: 'Q13955', hasScriptOption: false },
+            { code: 'ru', name: 'Russian (Русский)', qid: 'Q7737', hasScriptOption: false },
+            { code: 'pt', name: 'Portuguese (Português)', qid: 'Q5146', hasScriptOption: false },
+            { code: 'it', name: 'Italian (Italiano)', qid: 'Q652', hasScriptOption: false }
+          ];
+
+          const punjabiScripts = [
+            { qid: 'Q689894', name: 'Gurmukhi (ਗੁਰਮੁਖੀ)' },
+            { qid: 'Q202575', name: 'Shahmukhi (شاہ مکھی)' }
           ];
 
           const getSelectedLanguage = () => {
@@ -68,18 +73,15 @@
 
             let qs = '';
             
-            // Work Item
             qs += 'CREATE\n';
             qs += `LAST|Len|"${formData.labelEn}"\n`;
             if (formData.secondLangLabel && formData.secondLangCode) {
               qs += `LAST|L${formData.secondLangCode}|"${formData.secondLangLabel}"\n`;
             }
             
-            // Work description
             const workDescEn = `work by ${formData.authorName}`;
             qs += `LAST|Den|"${workDescEn}"\n`;
             if (formData.secondLangLabel && formData.secondLangAuthorName && formData.secondLangCode) {
-              // Default pattern for local language description
               const secondLangDescMap = {
                 'pa': `${formData.secondLangAuthorName} ਦੀ ਰਚਨਾ`,
                 'hi': `${formData.secondLangAuthorName} की रचना`,
@@ -91,35 +93,29 @@
             
             qs += `LAST|P31|${formData.workP31}\n`;
             
-            // Use P50 if Q-ID is available, otherwise use P2093 with author name
             if (formData.authorQid) {
               qs += `LAST|P50|${formData.authorQid}\n`;
             } else {
               qs += `LAST|P2093|"${formData.authorName}"\n`;
             }
             
-            // Add language property based on selection
             const selectedLang = getSelectedLanguage();
             if (selectedLang) {
-              if (selectedLang.script) {
-                // Punjabi with Gurmukhi script qualifier
-                qs += `LAST|P407|${selectedLang.qid}|P282|${selectedLang.script}\n`;
+              if (selectedLang.hasScriptOption && formData.secondLangCode === 'pa') {
+                qs += `LAST|P407|${selectedLang.qid}|P282|${formData.punjabiScript}\n`;
               } else {
-                // Other languages without script qualifier
                 qs += `LAST|P407|${selectedLang.qid}\n`;
               }
             }
             
             qs += '\n';
             
-            // Edition Item
             qs += 'CREATE\n';
             qs += `LAST|Len|"${formData.labelEn}"\n`;
             if (formData.secondLangLabel && formData.secondLangCode) {
               qs += `LAST|L${formData.secondLangCode}|"${formData.secondLangLabel}"\n`;
             }
             
-            // Edition description
             const yearPart = formData.publicationYear ? `${formData.publicationYear} ` : '';
             const editionDescEn = `${yearPart}edition of work by ${formData.authorName}`;
             qs += `LAST|Den|"${editionDescEn}"\n`;
@@ -142,21 +138,17 @@
             
             qs += `LAST|P31|${formData.editionP31}\n`;
             
-            // Use P50 if Q-ID is available, otherwise use P2093 with author name
             if (formData.authorQid) {
               qs += `LAST|P50|${formData.authorQid}\n`;
             } else {
               qs += `LAST|P2093|"${formData.authorName}"\n`;
             }
             
-            // Add language property based on selection
             const selectedLangEdition = getSelectedLanguage();
             if (selectedLangEdition) {
-              if (selectedLangEdition.script) {
-                // Punjabi with Gurmukhi script qualifier
-                qs += `LAST|P407|${selectedLangEdition.qid}|P282|${selectedLangEdition.script}\n`;
+              if (selectedLangEdition.hasScriptOption && formData.secondLangCode === 'pa') {
+                qs += `LAST|P407|${selectedLangEdition.qid}|P282|${formData.punjabiScript}\n`;
               } else {
-                // Other languages without script qualifier
                 qs += `LAST|P407|${selectedLangEdition.qid}\n`;
               }
             }
@@ -175,10 +167,36 @@
             setTimeout(() => setCopied(false), 2000);
           };
 
+          const handleOpenQuickStatements = () => {
+            const qs = generateQuickStatements();
+            if (!qs) return;
+            
+            const qsV1Format = qs.replace(/\n/g, '||');
+            const textarea = document.getElementById('qs_commands');
+            textarea.value = qsV1Format;
+            document.getElementById('qs_form').submit();
+          };
+
           const output = generateQuickStatements();
 
           return (
             <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+              <form 
+                style={{display: 'none'}} 
+                id="qs_form" 
+                action="https://quickstatements.toolforge.org/api.php" 
+                method="post" 
+                target="_blank"
+              >
+                <input type="hidden" name="action" value="import" />
+                <input type="hidden" name="format" value="v1" />
+                <input type="hidden" name="temporary" value="1" />
+                <input type="hidden" name="openpage" value="1" />
+                <input type="hidden" name="site" value="wikidata" />
+                <textarea type="hidden" id="qs_commands" name="data"></textarea>
+                <button name="yup"></button>
+              </form>
+
               <div className="max-w-4xl mx-auto">
                 <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
                   <h1 className="text-3xl font-bold text-indigo-900 mb-2">
@@ -189,7 +207,6 @@
                   </p>
                   
                   <div className="space-y-6">
-                    {/* Labels Section */}
                     <div className="border-b pb-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Labels</h3>
                       <div className="space-y-4">
@@ -210,7 +227,7 @@
                         <div className="grid md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Local Language (Optional)
+                              Local Language
                             </label>
                             <select
                               value={formData.secondLangCode}
@@ -236,10 +253,26 @@
                             />
                           </div>
                         </div>
+
+                        {formData.secondLangCode === 'pa' && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Punjabi Script
+                            </label>
+                            <select
+                              value={formData.punjabiScript}
+                              onChange={(e) => setFormData({...formData, punjabiScript: e.target.value})}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                              {punjabiScripts.map(script => (
+                                <option key={script.qid} value={script.qid}>{script.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Author Section */}
                     <div className="border-b pb-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Author Information</h3>
                       <div className="space-y-4">
@@ -274,7 +307,7 @@
                         
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Author Q-ID (Optional)
+                            Author Q-ID
                           </label>
                           <input
                             type="text"
@@ -288,7 +321,6 @@
                       </div>
                     </div>
 
-                    {/* Publication Info Section */}
                     <div className="border-b pb-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Publication Information</h3>
                       <div>
@@ -306,7 +338,6 @@
                       </div>
                     </div>
 
-                    {/* P31 Values Section */}
                     <div>
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">P31 Values (Instance of)</h3>
                       <div className="grid md:grid-cols-2 gap-4">
@@ -340,38 +371,58 @@
                   </div>
                 </div>
 
-                {/* Output Section */}
                 <div className="bg-white rounded-lg shadow-lg p-8">
-                  <div className="flex justify-between items-center mb-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                     <h2 className="text-xl font-semibold text-gray-900">
                       QuickStatements Output
                     </h2>
-                    <button
-                      onClick={handleCopy}
-                      disabled={!output}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    >
-                      {copied ? (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                          Copy to Clipboard
-                        </>
-                      )}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleCopy}
+                        disabled={!output}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      >
+                        {copied ? (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            Copy
+                          </>
+                        )}
+                      </button>
+                      
+                      <button
+                        onClick={handleOpenQuickStatements}
+                        disabled={!output}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Create in QuickStatements
+                      </button>
+                    </div>
                   </div>
                   
-                  <pre className="bg-gray-50 border border-gray-200 rounded-md p-4 overflow-x-auto text-sm font-mono whitespace-pre-wrap">
+                  <pre className="bg-gray-50 border border-gray-200 rounded-md p-4 overflow-x-auto text-sm font-mono whitespace-pre-wrap min-h-[200px]">
                     {output || 'Fill in the required fields (English label and author name) to generate QuickStatements...'}
                   </pre>
+                  
+                  {output && (
+                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
+                      <p className="text-sm text-green-800">
+                        <strong>✓ Ready!</strong> Click "Create in QuickStatements" to open the tool with your commands pre-loaded. Just login and click "Import" to create both items instantly!
+                      </p>
+                    </div>
+                  )}
                   
                   <div className="mt-4 text-sm text-gray-600">
                     <p className="font-semibold mb-2">Auto-generated descriptions:</p>
@@ -383,7 +434,7 @@
                     <ul className="list-disc list-inside space-y-1">
                       <li>P31 = Instance of (Q47461344 for work, Q3331189 for edition)</li>
                       <li>P50 = Author (if Q-ID provided) OR P2093 = Author name string (if no Q-ID)</li>
-                      <li>P407 = Language of work (with P282 qualifier for Punjabi/Gurmukhi)</li>
+                      <li>P407 = Language of work (with P282 qualifier for Punjabi script selection)</li>
                       <li>P577 = Publication date (edition item only)</li>
                     </ul>
                   </div>
