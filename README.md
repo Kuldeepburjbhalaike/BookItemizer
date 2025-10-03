@@ -1,4 +1,4 @@
-# Wikidata BookStruct
+# Wikidata BookItemizer
 
 A simple React + Tailwind web tool to **generate QuickStatements for creating "work" and "edition" items on Wikidata**.  
 
