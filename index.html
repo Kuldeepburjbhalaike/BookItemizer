@@ -1,0 +1,312 @@
+# Complete HTML Code for index.html
+
+Copy everything below this line and paste into GitHub:
+
+---
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wikidata QuickStatements Generator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState } = React;
+        
+        function QuickStatementsGenerator() {
+          const [formData, setFormData] = useState({
+            labelEn: '',
+            labelPa: '',
+            authorName: '',
+            authorNamePa: '',
+            authorQid: '',
+            publicationYear: '',
+            workP31: 'Q47461344',
+            editionP31: 'Q3331189'
+          });
+          
+          const [copied, setCopied] = useState(false);
+
+          const generateQuickStatements = () => {
+            let qs = '';
+            
+            // Work Item
+            if (formData.labelEn) {
+              qs += 'CREATE\n';
+              qs += `LAST|Len|"${formData.labelEn}"\n`;
+              if (formData.labelPa) {
+                qs += `LAST|Lpa|"${formData.labelPa}"\n`;
+              }
+              
+              // Work description
+              const workDescEn = `work by ${formData.authorName || '[author name]'}`;
+              qs += `LAST|Den|"${workDescEn}"\n`;
+              if (formData.labelPa && formData.authorNamePa) {
+                qs += `LAST|Dpa|"${formData.authorNamePa} ਦੀ ਰਚਨਾ"\n`;
+              }
+              
+              qs += `LAST|P31|${formData.workP31}\n`;
+              
+              if (formData.authorQid) {
+                qs += `LAST|P50|${formData.authorQid}\n`;
+              } else if (formData.authorName) {
+                qs += `LAST|P50|"${formData.authorName}"\n`;
+              }
+              
+              qs += 'LAST|P407|Q58635|P282|Q689894\n';
+              qs += '\n';
+            }
+            
+            // Edition Item
+            if (formData.labelEn) {
+              qs += 'CREATE\n';
+              qs += `LAST|Len|"${formData.labelEn}"\n`;
+              if (formData.labelPa) {
+                qs += `LAST|Lpa|"${formData.labelPa}"\n`;
+              }
+              
+              // Edition description
+              const yearPart = formData.publicationYear ? `${formData.publicationYear} ` : '';
+              const editionDescEn = `${yearPart}edition of work by ${formData.authorName || '[author name]'}`;
+              qs += `LAST|Den|"${editionDescEn}"\n`;
+              if (formData.labelPa && formData.authorNamePa) {
+                const editionDescPa = formData.publicationYear 
+                  ? `${formData.authorNamePa} ਦੀ ਰਚਨਾ ਦੀ ${formData.publicationYear} ਛਾਪ`
+                  : `${formData.authorNamePa} ਦੀ ਰਚਨਾ ਦੀ ਛਾਪ`;
+                qs += `LAST|Dpa|"${editionDescPa}"\n`;
+              }
+              
+              qs += `LAST|P31|${formData.editionP31}\n`;
+              
+              if (formData.authorQid) {
+                qs += `LAST|P50|${formData.authorQid}\n`;
+              } else if (formData.authorName) {
+                qs += `LAST|P50|"${formData.authorName}"\n`;
+              }
+              
+              qs += 'LAST|P407|Q58635|P282|Q689894\n';
+              
+              if (formData.publicationYear) {
+                qs += `LAST|P577|+${formData.publicationYear}-00-00T00:00:00Z/9\n`;
+              }
+            }
+            
+            return qs;
+          };
+
+          const handleCopy = () => {
+            const qs = generateQuickStatements();
+            navigator.clipboard.writeText(qs);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          };
+
+          const output = generateQuickStatements();
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
+                  <h1 className="text-3xl font-bold text-indigo-900 mb-2">
+                    Wikidata QuickStatements Generator
+                  </h1>
+                  <p className="text-gray-600 mb-6">
+                    Create work and edition items (both items will use same data with different descriptions)
+                  </p>
+                  
+                  <div className="space-y-6">
+                    <div className="border-b pb-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Labels</h3>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Label (English) *
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.labelEn}
+                            onChange={(e) => setFormData({...formData, labelEn: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="e.g., Example Book"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Label (Punjabi - pa)
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.labelPa}
+                            onChange={(e) => setFormData({...formData, labelPa: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="e.g., ਉਦਾਹਰਨ ਕਿਤਾਬ"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Descriptions will be auto-generated based on author name and publication year
+                      </p>
+                    </div>
+
+                    <div className="border-b pb-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Author Information</h3>
+                      <div className="grid md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Author Name (English) *
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.authorName}
+                            onChange={(e) => setFormData({...formData, authorName: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Author Name"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Used in English description</p>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Author Name (Punjabi)
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.authorNamePa}
+                            onChange={(e) => setFormData({...formData, authorNamePa: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="ਲੇਖਕ ਦਾ ਨਾਮ"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Used in Punjabi description</p>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Author Q-ID
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.authorQid}
+                          onChange={(e) => setFormData({...formData, authorQid: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          placeholder="Q123456"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">If available (P50)</p>
+                      </div>
+                    </div>
+
+                    <div className="border-b pb-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Publication Information</h3>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Publication Year (P577)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.publicationYear}
+                          onChange={(e) => setFormData({...formData, publicationYear: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          placeholder="e.g., 2024"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Used in edition description and P577 statement (edition only)</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">P31 Values (Instance of)</h3>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Work Item P31
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.workP31}
+                            onChange={(e) => setFormData({...formData, workP31: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Q47461344"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Edition Item P31
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.editionP31}
+                            onChange={(e) => setFormData({...formData, editionP31: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Q3331189"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-lg p-8">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      QuickStatements Output
+                    </h2>
+                    <button
+                      onClick={handleCopy}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                    >
+                      {copied ? (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          Copy to Clipboard
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  
+                  <pre className="bg-gray-50 border border-gray-200 rounded-md p-4 overflow-x-auto text-sm font-mono whitespace-pre-wrap">
+                    {output || 'Fill in the English label and author name to generate QuickStatements...'}
+                  </pre>
+                  
+                  <div className="mt-4 text-sm text-gray-600">
+                    <p className="font-semibold mb-2">Auto-generated descriptions:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li><strong>Work:</strong> "work by [author name]"</li>
+                      <li><strong>Edition:</strong> "[publication year] edition of work by [author name]"</li>
+                    </ul>
+                    <p className="font-semibold mt-3 mb-2">Properties included:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>P31 = Instance of (Q47461344 for work, Q3331189 for edition)</li>
+                      <li>P50 = Author (Q-ID or name)</li>
+                      <li>P407 = Q58635 (Punjabi language) with qualifier P282 = Q689894 (Gurmukhi script)</li>
+                      <li>P577 = Publication date (edition item only)</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        
+        ReactDOM.render(<QuickStatementsGenerator />, document.getElementById('root'));
+    </script>
+</body>
+</html>
+```
