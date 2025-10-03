@@ -1,4 +1,4 @@
-# Wikidata QuickStatements Generator
+# Wikidata BookStruct
 
 A simple React + Tailwind web tool to **generate QuickStatements for creating "work" and "edition" items on Wikidata**.  
 
