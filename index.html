@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wikidata QuickStatements Generator</title>
+    <title>Wikidata Book Itemizer</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -15,7 +15,7 @@
     <script type="text/babel">
         const { useState } = React;
         
-        function QuickStatementsGenerator() {
+        function Bookitemizer() {
           const [formData, setFormData] = useState({
             labelEn: '',
             authorName: '',
@@ -182,7 +182,7 @@
               <div className="max-w-4xl mx-auto">
                 <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
                   <h1 className="text-3xl font-bold text-indigo-900 mb-2">
-                    Wikidata QuickStatements Generator
+                    Wikidata Book Itemizer
                   </h1>
                   <p className="text-gray-600 mb-6">
                     Easily Create work and edition items
@@ -393,7 +393,7 @@
           );
         }
         
-        ReactDOM.render(<QuickStatementsGenerator />, document.getElementById('root'));
+        ReactDOM.render(<Bookitemizer />, document.getElementById('root'));
     </script>
 </body>
 </html>
