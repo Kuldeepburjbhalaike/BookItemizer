@@ -18,79 +18,151 @@
         function QuickStatementsGenerator() {
           const [formData, setFormData] = useState({
             labelEn: '',
-            labelPa: '',
             authorName: '',
-            authorNamePa: '',
             authorQid: '',
             publicationYear: '',
             workP31: 'Q47461344',
-            editionP31: 'Q3331189'
+            editionP31: 'Q3331189',
+            secondLangCode: 'pa',
+            secondLangLabel: '',
+            secondLangAuthorName: ''
           });
           
           const [copied, setCopied] = useState(false);
 
+          // Common language codes for Wikidata with their Q-IDs
+          const languages = [
+            { code: 'pa', name: 'Punjabi (ਪੰਜਾਬੀ)', qid: 'Q58635', script: 'Q689894' },
+            { code: 'hi', name: 'Hindi (हिन्दी)', qid: 'Q1568', script: null },
+            { code: 'ur', name: 'Urdu (اردو)', qid: 'Q1617', script: null },
+            { code: 'bn', name: 'Bengali (বাংলা)', qid: 'Q9610', script: null },
+            { code: 'ta', name: 'Tamil (தமிழ்)', qid: 'Q5885', script: null },
+            { code: 'te', name: 'Telugu (తెలుగు)', qid: 'Q8097', script: null },
+            { code: 'mr', name: 'Marathi (मराठी)', qid: 'Q1571', script: null },
+            { code: 'gu', name: 'Gujarati (ગુજરાતી)', qid: 'Q5137', script: null },
+            { code: 'kn', name: 'Kannada (ಕನ್ನಡ)', qid: 'Q33673', script: null },
+            { code: 'ml', name: 'Malayalam (മലയാളം)', qid: 'Q36236', script: null },
+            { code: 'or', name: 'Odia (ଓଡ଼ିଆ)', qid: 'Q33810', script: null },
+            { code: 'as', name: 'Assamese (অসমীয়া)', qid: 'Q29401', script: null },
+            { code: 'sa', name: 'Sanskrit (संस्कृतम्)', qid: 'Q11059', script: null },
+            { code: 'es', name: 'Spanish (Español)', qid: 'Q1321', script: null },
+            { code: 'fr', name: 'French (Français)', qid: 'Q150', script: null },
+            { code: 'de', name: 'German (Deutsch)', qid: 'Q188', script: null },
+            { code: 'zh', name: 'Chinese (中文)', qid: 'Q7850', script: null },
+            { code: 'ja', name: 'Japanese (日本語)', qid: 'Q5287', script: null },
+            { code: 'ko', name: 'Korean (한국어)', qid: 'Q9176', script: null },
+            { code: 'ar', name: 'Arabic (العربية)', qid: 'Q13955', script: null },
+            { code: 'ru', name: 'Russian (Русский)', qid: 'Q7737', script: null },
+            { code: 'pt', name: 'Portuguese (Português)', qid: 'Q5146', script: null },
+            { code: 'it', name: 'Italian (Italiano)', qid: 'Q652', script: null }
+          ];
+
+          const getSelectedLanguage = () => {
+            return languages.find(lang => lang.code === formData.secondLangCode);
+          };
+
           const generateQuickStatements = () => {
+            if (!formData.labelEn || !formData.authorName) {
+              return '';
+            }
+
             let qs = '';
             
             // Work Item
-            if (formData.labelEn) {
-              qs += 'CREATE\n';
-              qs += `LAST|Len|"${formData.labelEn}"\n`;
-              if (formData.labelPa) {
-                qs += `LAST|Lpa|"${formData.labelPa}"\n`;
-              }
-              
-              // Work description
-              const workDescEn = `work by ${formData.authorName || '[author name]'}`;
-              qs += `LAST|Den|"${workDescEn}"\n`;
-              if (formData.labelPa && formData.authorNamePa) {
-                qs += `LAST|Dpa|"${formData.authorNamePa} ਦੀ ਰਚਨਾ"\n`;
-              }
-              
-              qs += `LAST|P31|${formData.workP31}\n`;
-              
-              if (formData.authorQid) {
-                qs += `LAST|P50|${formData.authorQid}\n`;
-              } else if (formData.authorName) {
-                qs += `LAST|P50|"${formData.authorName}"\n`;
-              }
-              
-              qs += 'LAST|P407|Q58635|P282|Q689894\n';
-              qs += '\n';
+            qs += 'CREATE\n';
+            qs += `LAST|Len|"${formData.labelEn}"\n`;
+            if (formData.secondLangLabel && formData.secondLangCode) {
+              qs += `LAST|L${formData.secondLangCode}|"${formData.secondLangLabel}"\n`;
             }
             
+            // Work description
+            const workDescEn = `work by ${formData.authorName}`;
+            qs += `LAST|Den|"${workDescEn}"\n`;
+            if (formData.secondLangLabel && formData.secondLangAuthorName && formData.secondLangCode) {
+              // Default pattern for local language description
+              const secondLangDescMap = {
+                'pa': `${formData.secondLangAuthorName} ਦੀ ਰਚਨਾ`,
+                'hi': `${formData.secondLangAuthorName} की रचना`,
+                'ur': `${formData.secondLangAuthorName} کی تخلیق`
+              };
+              const secondLangDesc = secondLangDescMap[formData.secondLangCode] || `work by ${formData.secondLangAuthorName}`;
+              qs += `LAST|D${formData.secondLangCode}|"${secondLangDesc}"\n`;
+            }
+            
+            qs += `LAST|P31|${formData.workP31}\n`;
+            
+            // Use P50 if Q-ID is available, otherwise use P2093 with author name
+            if (formData.authorQid) {
+              qs += `LAST|P50|${formData.authorQid}\n`;
+            } else {
+              qs += `LAST|P2093|"${formData.authorName}"\n`;
+            }
+            
+            // Add language property based on selection
+            const selectedLang = getSelectedLanguage();
+            if (selectedLang) {
+              if (selectedLang.script) {
+                // Punjabi with Gurmukhi script qualifier
+                qs += `LAST|P407|${selectedLang.qid}|P282|${selectedLang.script}\n`;
+              } else {
+                // Other languages without script qualifier
+                qs += `LAST|P407|${selectedLang.qid}\n`;
+              }
+            }
+            
+            qs += '\n';
+            
             // Edition Item
-            if (formData.labelEn) {
-              qs += 'CREATE\n';
-              qs += `LAST|Len|"${formData.labelEn}"\n`;
-              if (formData.labelPa) {
-                qs += `LAST|Lpa|"${formData.labelPa}"\n`;
+            qs += 'CREATE\n';
+            qs += `LAST|Len|"${formData.labelEn}"\n`;
+            if (formData.secondLangLabel && formData.secondLangCode) {
+              qs += `LAST|L${formData.secondLangCode}|"${formData.secondLangLabel}"\n`;
+            }
+            
+            // Edition description
+            const yearPart = formData.publicationYear ? `${formData.publicationYear} ` : '';
+            const editionDescEn = `${yearPart}edition of work by ${formData.authorName}`;
+            qs += `LAST|Den|"${editionDescEn}"\n`;
+            if (formData.secondLangLabel && formData.secondLangAuthorName && formData.secondLangCode) {
+              const editionDescMap = {
+                'pa': formData.publicationYear 
+                  ? `${formData.secondLangAuthorName} ਦੀ ਰਚਨਾ ਦੀ ${formData.publicationYear} ਛਾਪ`
+                  : `${formData.secondLangAuthorName} ਦੀ ਰਚਨਾ ਦੀ ਛਾਪ`,
+                'hi': formData.publicationYear
+                  ? `${formData.secondLangAuthorName} की रचना का ${formData.publicationYear} संस्करण`
+                  : `${formData.secondLangAuthorName} की रचना का संस्करण`,
+                'ur': formData.publicationYear
+                  ? `${formData.secondLangAuthorName} کی تخلیق کا ${formData.publicationYear} ایڈیشن`
+                  : `${formData.secondLangAuthorName} کی تخلیق کا ایڈیشن`
+              };
+              const editionDesc = editionDescMap[formData.secondLangCode] || 
+                `${yearPart}edition of work by ${formData.secondLangAuthorName}`;
+              qs += `LAST|D${formData.secondLangCode}|"${editionDesc}"\n`;
+            }
+            
+            qs += `LAST|P31|${formData.editionP31}\n`;
+            
+            // Use P50 if Q-ID is available, otherwise use P2093 with author name
+            if (formData.authorQid) {
+              qs += `LAST|P50|${formData.authorQid}\n`;
+            } else {
+              qs += `LAST|P2093|"${formData.authorName}"\n`;
+            }
+            
+            // Add language property based on selection
+            const selectedLangEdition = getSelectedLanguage();
+            if (selectedLangEdition) {
+              if (selectedLangEdition.script) {
+                // Punjabi with Gurmukhi script qualifier
+                qs += `LAST|P407|${selectedLangEdition.qid}|P282|${selectedLangEdition.script}\n`;
+              } else {
+                // Other languages without script qualifier
+                qs += `LAST|P407|${selectedLangEdition.qid}\n`;
               }
-              
-              // Edition description
-              const yearPart = formData.publicationYear ? `${formData.publicationYear} ` : '';
-              const editionDescEn = `${yearPart}edition of work by ${formData.authorName || '[author name]'}`;
-              qs += `LAST|Den|"${editionDescEn}"\n`;
-              if (formData.labelPa && formData.authorNamePa) {
-                const editionDescPa = formData.publicationYear 
-                  ? `${formData.authorNamePa} ਦੀ ਰਚਨਾ ਦੀ ${formData.publicationYear} ਛਾਪ`
-                  : `${formData.authorNamePa} ਦੀ ਰਚਨਾ ਦੀ ਛਾਪ`;
-                qs += `LAST|Dpa|"${editionDescPa}"\n`;
-              }
-              
-              qs += `LAST|P31|${formData.editionP31}\n`;
-              
-              if (formData.authorQid) {
-                qs += `LAST|P50|${formData.authorQid}\n`;
-              } else if (formData.authorName) {
-                qs += `LAST|P50|"${formData.authorName}"\n`;
-              }
-              
-              qs += 'LAST|P407|Q58635|P282|Q689894\n';
-              
-              if (formData.publicationYear) {
-                qs += `LAST|P577|+${formData.publicationYear}-00-00T00:00:00Z/9\n`;
-              }
+            }
+            
+            if (formData.publicationYear) {
+              qs += `LAST|P577|+${formData.publicationYear}-00-00T00:00:00Z/9\n`;
             }
             
             return qs;
@@ -113,13 +185,14 @@
                     Wikidata QuickStatements Generator
                   </h1>
                   <p className="text-gray-600 mb-6">
-                    Create work and edition items (both items will use same data with different descriptions)
+                    Easily Create work and edition items
                   </p>
                   
                   <div className="space-y-6">
+                    {/* Labels Section */}
                     <div className="border-b pb-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Labels</h3>
-                      <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Label (English) *
@@ -130,30 +203,46 @@
                             onChange={(e) => setFormData({...formData, labelEn: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             placeholder="e.g., Example Book"
+                            required
                           />
                         </div>
                         
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Label (Punjabi - pa)
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.labelPa}
-                            onChange={(e) => setFormData({...formData, labelPa: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="e.g., ਉਦਾਹਰਨ ਕਿਤਾਬ"
-                          />
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Local Language (Optional)
+                            </label>
+                            <select
+                              value={formData.secondLangCode}
+                              onChange={(e) => setFormData({...formData, secondLangCode: e.target.value})}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                              {languages.map(lang => (
+                                <option key={lang.code} value={lang.code}>{lang.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Label in Local Language
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.secondLangLabel}
+                              onChange={(e) => setFormData({...formData, secondLangLabel: e.target.value})}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                              placeholder="e.g., ਉਦਾਹਰਨ ਕਿਤਾਬ"
+                            />
+                          </div>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Descriptions will be auto-generated based on author name and publication year
-                      </p>
                     </div>
 
+                    {/* Author Section */}
                     <div className="border-b pb-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Author Information</h3>
-                      <div className="grid md:grid-cols-2 gap-4 mb-4">
+                      <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Author Name (English) *
@@ -164,39 +253,42 @@
                             onChange={(e) => setFormData({...formData, authorName: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             placeholder="Author Name"
+                            required
                           />
-                          <p className="text-xs text-gray-500 mt-1">Used in English description</p>
+                          <p className="text-xs text-gray-500 mt-1">Used in English description and P2093 if no Q-ID provided</p>
                         </div>
                         
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Author Name (Punjabi)
+                            Author Name in Local Language
                           </label>
                           <input
                             type="text"
-                            value={formData.authorNamePa}
-                            onChange={(e) => setFormData({...formData, authorNamePa: e.target.value})}
+                            value={formData.secondLangAuthorName}
+                            onChange={(e) => setFormData({...formData, secondLangAuthorName: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="ਲੇਖਕ ਦਾ ਨਾਮ"
+                            placeholder="e.g., ਲੇਖਕ ਦਾ ਨਾਮ"
                           />
-                          <p className="text-xs text-gray-500 mt-1">Used in Punjabi description</p>
+                          <p className="text-xs text-gray-500 mt-1">Used in local language description</p>
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Author Q-ID
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.authorQid}
-                          onChange={(e) => setFormData({...formData, authorQid: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="Q123456"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">If available (P50)</p>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Author Q-ID (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.authorQid}
+                            onChange={(e) => setFormData({...formData, authorQid: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Q123456"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">If available, P50 will be used; otherwise P2093 with author name</p>
+                        </div>
                       </div>
                     </div>
 
+                    {/* Publication Info Section */}
                     <div className="border-b pb-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Publication Information</h3>
                       <div>
@@ -214,6 +306,7 @@
                       </div>
                     </div>
 
+                    {/* P31 Values Section */}
                     <div>
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">P31 Values (Instance of)</h3>
                       <div className="grid md:grid-cols-2 gap-4">
@@ -247,6 +340,7 @@
                   </div>
                 </div>
 
+                {/* Output Section */}
                 <div className="bg-white rounded-lg shadow-lg p-8">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-gray-900">
@@ -254,7 +348,8 @@
                     </h2>
                     <button
                       onClick={handleCopy}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                      disabled={!output}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                       {copied ? (
                         <>
@@ -275,7 +370,7 @@
                   </div>
                   
                   <pre className="bg-gray-50 border border-gray-200 rounded-md p-4 overflow-x-auto text-sm font-mono whitespace-pre-wrap">
-                    {output || 'Fill in the English label and author name to generate QuickStatements...'}
+                    {output || 'Fill in the required fields (English label and author name) to generate QuickStatements...'}
                   </pre>
                   
                   <div className="mt-4 text-sm text-gray-600">
@@ -287,8 +382,8 @@
                     <p className="font-semibold mt-3 mb-2">Properties included:</p>
                     <ul className="list-disc list-inside space-y-1">
                       <li>P31 = Instance of (Q47461344 for work, Q3331189 for edition)</li>
-                      <li>P50 = Author (Q-ID or name)</li>
-                      <li>P407 = Q58635 (Punjabi language) with qualifier P282 = Q689894 (Gurmukhi script)</li>
+                      <li>P50 = Author (if Q-ID provided) OR P2093 = Author name string (if no Q-ID)</li>
+                      <li>P407 = Language of work (with P282 qualifier for Punjabi/Gurmukhi)</li>
                       <li>P577 = Publication date (edition item only)</li>
                     </ul>
                   </div>
