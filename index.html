@@ -37,7 +37,6 @@
           const [copied, setCopied] = useState(false);
           const [darkMode, setDarkMode] = useState(false);
 
-          // Initialize theme based on system preference
           useEffect(() => {
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             setDarkMode(isDark);
@@ -52,29 +51,29 @@
           };
 
           const languages = [
-            { code: 'pa', name: 'Punjabi (ਪੰਜਾਬੀ)', qid: 'Q58635', hasScriptOption: true },
-            { code: 'hi', name: 'Hindi (हिन्दी)', qid: 'Q1568', hasScriptOption: false },
-            { code: 'ur', name: 'Urdu (اردو)', qid: 'Q1617', hasScriptOption: false },
-            { code: 'bn', name: 'Bengali (বাংলা)', qid: 'Q9610', hasScriptOption: false },
-            { code: 'ta', name: 'Tamil (தமிழ்)', qid: 'Q5885', hasScriptOption: false },
-            { code: 'te', name: 'Telugu (తెలుగు)', qid: 'Q8097', hasScriptOption: false },
-            { code: 'mr', name: 'Marathi (मराठी)', qid: 'Q1571', hasScriptOption: false },
-            { code: 'gu', name: 'Gujarati (ગુજરાતી)', qid: 'Q5137', hasScriptOption: false },
-            { code: 'kn', name: 'Kannada (ಕನ್ನಡ)', qid: 'Q33673', hasScriptOption: false },
-            { code: 'ml', name: 'Malayalam (മലയാളം)', qid: 'Q36236', hasScriptOption: false },
-            { code: 'or', name: 'Odia (ଓଡ଼ିଆ)', qid: 'Q33810', hasScriptOption: false },
-            { code: 'as', name: 'Assamese (অসমীয়া)', qid: 'Q29401', hasScriptOption: false },
-            { code: 'sa', name: 'Sanskrit (संस्कृतम्)', qid: 'Q11059', hasScriptOption: false },
-            { code: 'es', name: 'Spanish (Español)', qid: 'Q1321', hasScriptOption: false },
-            { code: 'fr', name: 'French (Français)', qid: 'Q150', hasScriptOption: false },
-            { code: 'de', name: 'German (Deutsch)', qid: 'Q188', hasScriptOption: false },
-            { code: 'zh', name: 'Chinese (中文)', qid: 'Q7850', hasScriptOption: false },
-            { code: 'ja', name: 'Japanese (日本語)', qid: 'Q5287', hasScriptOption: false },
-            { code: 'ko', name: 'Korean (한국어)', qid: 'Q9176', hasScriptOption: false },
-            { code: 'ar', name: 'Arabic (العربية)', qid: 'Q13955', hasScriptOption: false },
-            { code: 'ru', name: 'Russian (Русский)', qid: 'Q7737', hasScriptOption: false },
-            { code: 'pt', name: 'Portuguese (Português)', qid: 'Q5146', hasScriptOption: false },
-            { code: 'it', name: 'Italian (Italiano)', qid: 'Q652', hasScriptOption: false }
+            { code: 'pa', name: 'Punjabi (ਪੰਜਾਬੀ)', qid: 'Q58635', hasScriptOption: true, placeholder: 'ਉਦਾਹਰਨ ਕਿਤਾਬ', authorPlaceholder: 'ਲੇਖਕ ਦਾ ਨਾਮ' },
+            { code: 'hi', name: 'Hindi (हिन्दी)', qid: 'Q1568', hasScriptOption: false, placeholder: 'उदाहरण पुस्तक', authorPlaceholder: 'लेखक का नाम' },
+            { code: 'ur', name: 'Urdu (اردو)', qid: 'Q1617', hasScriptOption: false, placeholder: 'مثال کتاب', authorPlaceholder: 'مصنف کا نام' },
+            { code: 'bn', name: 'Bengali (বাংলা)', qid: 'Q9610', hasScriptOption: false, placeholder: 'উদাহরণ বই', authorPlaceholder: 'লেখকের নাম' },
+            { code: 'ta', name: 'Tamil (தமிழ்)', qid: 'Q5885', hasScriptOption: false, placeholder: 'உதாரண புத்தகம்', authorPlaceholder: 'ஆசிரியர் பெயர்' },
+            { code: 'te', name: 'Telugu (తెలుగు)', qid: 'Q8097', hasScriptOption: false, placeholder: 'ఉదాహరణ పుస్తకం', authorPlaceholder: 'రచయిత పేరు' },
+            { code: 'mr', name: 'Marathi (मराठी)', qid: 'Q1571', hasScriptOption: false, placeholder: 'उदाहरण पुस्तक', authorPlaceholder: 'लेखकाचे नाव' },
+            { code: 'gu', name: 'Gujarati (ગુજરાતી)', qid: 'Q5137', hasScriptOption: false, placeholder: 'ઉદાહરણ પુસ્તક', authorPlaceholder: 'લેખકનું નામ' },
+            { code: 'kn', name: 'Kannada (ಕನ್ನಡ)', qid: 'Q33673', hasScriptOption: false, placeholder: 'ಉದಾಹರಣೆ ಪುಸ್ತಕ', authorPlaceholder: 'ಲೇಖಕರ ಹೆಸರು' },
+            { code: 'ml', name: 'Malayalam (മലയാളം)', qid: 'Q36236', hasScriptOption: false, placeholder: 'ഉദാഹരണ പുസ്തകം', authorPlaceholder: 'രചയിതാവിന്റെ പേര്' },
+            { code: 'or', name: 'Odia (ଓଡ଼ିଆ)', qid: 'Q33810', hasScriptOption: false, placeholder: 'ଉଦାହରଣ ପୁସ୍ତକ', authorPlaceholder: 'ଲେଖକଙ୍କ ନାମ' },
+            { code: 'as', name: 'Assamese (অসমীয়া)', qid: 'Q29401', hasScriptOption: false, placeholder: 'উদাহৰণ কিতাপ', authorPlaceholder: 'লেখকৰ নাম' },
+            { code: 'sa', name: 'Sanskrit (संस्कृतम्)', qid: 'Q11059', hasScriptOption: false, placeholder: 'उदाहरणपुस्तकम्', authorPlaceholder: 'लेखकस्य नाम' },
+            { code: 'es', name: 'Spanish (Español)', qid: 'Q1321', hasScriptOption: false, placeholder: 'Libro de ejemplo', authorPlaceholder: 'Nombre del autor' },
+            { code: 'fr', name: 'French (Français)', qid: 'Q150', hasScriptOption: false, placeholder: 'Livre exemple', authorPlaceholder: 'Nom de l\'auteur' },
+            { code: 'de', name: 'German (Deutsch)', qid: 'Q188', hasScriptOption: false, placeholder: 'Beispielbuch', authorPlaceholder: 'Autorenname' },
+            { code: 'zh', name: 'Chinese (中文)', qid: 'Q7850', hasScriptOption: false, placeholder: '示例书籍', authorPlaceholder: '作者姓名' },
+            { code: 'ja', name: 'Japanese (日本語)', qid: 'Q5287', hasScriptOption: false, placeholder: '例の本', authorPlaceholder: '著者名' },
+            { code: 'ko', name: 'Korean (한국어)', qid: 'Q9176', hasScriptOption: false, placeholder: '예제 책', authorPlaceholder: '저자 이름' },
+            { code: 'ar', name: 'Arabic (العربية)', qid: 'Q13955', hasScriptOption: false, placeholder: 'كتاب مثال', authorPlaceholder: 'اسم المؤلف' },
+            { code: 'ru', name: 'Russian (Русский)', qid: 'Q7737', hasScriptOption: false, placeholder: 'Пример книги', authorPlaceholder: 'Имя автора' },
+            { code: 'pt', name: 'Portuguese (Português)', qid: 'Q5146', hasScriptOption: false, placeholder: 'Livro de exemplo', authorPlaceholder: 'Nome do autor' },
+            { code: 'it', name: 'Italian (Italiano)', qid: 'Q652', hasScriptOption: false, placeholder: 'Libro di esempio', authorPlaceholder: 'Nome dell\'autore' }
           ];
 
           const punjabiScripts = [
@@ -245,6 +244,7 @@
 
           const output = generateQuickStatements();
           const isbnProperty = getISBNProperty();
+          const selectedLanguage = getSelectedLanguage();
 
           return (
             <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-6 transition-colors duration-200">
@@ -265,32 +265,33 @@
               </form>
 
               <div className="max-w-4xl mx-auto">
-                {/* Header with theme toggle */}
-                <div className="flex justify-end mb-4">
-                  <button
-                    onClick={toggleDarkMode}
-                    className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow"
-                    aria-label="Toggle dark mode"
-                  >
-                    {darkMode ? (
-                      <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 mb-6 transition-colors duration-200">
-                  <h1 className="text-3xl font-bold text-indigo-900 dark:text-indigo-300 mb-2">
-                    Wikidata Book Itemizer
-                  </h1>
-                  <p className="text-gray-600 dark:text-gray-300 mb-6">
-                    Easily Create work and edition items
-                  </p>
+                  {/* Header with theme toggle */}
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h1 className="text-3xl font-bold text-indigo-900 dark:text-indigo-300 mb-2">
+                        Wikidata Book Itemizer
+                      </h1>
+                      <p className="text-gray-600 dark:text-gray-300">
+                        Easily Create work and edition items
+                      </p>
+                    </div>
+                    <button
+                      onClick={toggleDarkMode}
+                      className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      aria-label="Toggle dark mode"
+                    >
+                      {darkMode ? (
+                        <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                   
                   <div className="space-y-6">
                     <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
@@ -335,7 +336,7 @@
                               value={formData.secondLangLabel}
                               onChange={(e) => setFormData({...formData, secondLangLabel: e.target.value})}
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                              placeholder="e.g., ਉਦਾਹਰਨ ਕਿਤਾਬ"
+                              placeholder={selectedLanguage?.placeholder || 'e.g., Example Book'}
                             />
                           </div>
                         </div>
@@ -386,7 +387,7 @@
                             value={formData.secondLangAuthorName}
                             onChange={(e) => setFormData({...formData, secondLangAuthorName: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                            placeholder="e.g., ਲੇਖਕ ਦਾ ਨਾਮ"
+                            placeholder={selectedLanguage?.authorPlaceholder || 'e.g., Author Name'}
                           />
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Used in local language description</p>
                         </div>
@@ -500,7 +501,7 @@
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v 6L10 14" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
                         Create in QuickStatements
                       </button>
