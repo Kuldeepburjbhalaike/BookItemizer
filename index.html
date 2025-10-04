@@ -37,7 +37,6 @@
           const [copied, setCopied] = useState(false);
           const [darkMode, setDarkMode] = useState(false);
           
-          // Search states
           const [authorSearchQuery, setAuthorSearchQuery] = useState('');
           const [authorSearchResults, setAuthorSearchResults] = useState([]);
           const [showAuthorResults, setShowAuthorResults] = useState(false);
@@ -59,7 +58,6 @@
             }
           }, []);
 
-          // Close dropdowns when clicking outside
           useEffect(() => {
             const handleClickOutside = (event) => {
               if (authorSearchRef.current && !authorSearchRef.current.contains(event.target)) {
@@ -78,17 +76,35 @@
             document.documentElement.classList.toggle('dark');
           };
 
+          const fetchItemLabels = async (qid, langCode) => {
+            try {
+              const response = await fetch(
+                `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qid}&props=labels&languages=en|${langCode}&format=json&origin=*`
+              );
+              const data = await response.json();
+              const entity = data.entities[qid];
+              
+              if (entity && entity.labels) {
+                return {
+                  en: entity.labels.en?.value || '',
+                  local: entity.labels[langCode]?.value || ''
+                };
+              }
+              return { en: '', local: '' };
+            } catch (error) {
+              console.error('Error fetching item labels:', error);
+              return { en: '', local: '' };
+            }
+          };
+
           const searchWikidata = async (query, type) => {
             if (query.length < 2) return [];
             
             try {
-              const instanceOf = type === 'author' ? 'Q5' : 'Q2085381'; // Q5 = human, Q2085381 = publisher
               const response = await fetch(
                 `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=en&limit=10&format=json&origin=*&type=item`
               );
               const data = await response.json();
-              
-              // Filter results to show only relevant items
               const results = data.search || [];
               return results.map(item => ({
                 id: item.id,
@@ -131,10 +147,21 @@
             setPublisherLoading(false);
           };
 
-          const selectAuthor = (result) => {
+          const selectAuthor = async (result) => {
             setFormData({...formData, authorQid: result.id});
             setAuthorSearchQuery(result.label);
             setShowAuthorResults(false);
+            
+            // Fetch labels from Wikidata
+            const labels = await fetchItemLabels(result.id, formData.secondLangCode);
+            
+            // Update author names if labels exist in Wikidata
+            setFormData(prev => ({
+              ...prev,
+              authorQid: result.id,
+              authorName: labels.en || prev.authorName,
+              secondLangAuthorName: labels.local || prev.secondLangAuthorName
+            }));
           };
 
           const selectPublisher = (result) => {
@@ -144,7 +171,7 @@
           };
 
           const clearAuthorSearch = () => {
-            setFormData({...formData, authorQid: ''});
+            setFormData({...formData, authorQid: '', authorName: '', secondLangAuthorName: ''});
             setAuthorSearchQuery('');
             setAuthorSearchResults([]);
           };
@@ -451,35 +478,7 @@
                     <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
                       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Author Information</h3>
                       <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Author Name (English) *
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.authorName}
-                            onChange={(e) => setFormData({...formData, authorName: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                            placeholder="Author Name"
-                            required
-                          />
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Used in English description and P2093 if no Q-ID provided</p>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Author Name in Local Language
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.secondLangAuthorName}
-                            onChange={(e) => setFormData({...formData, secondLangAuthorName: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                            placeholder={selectedLanguage?.authorPlaceholder || 'e.g., Author Name'}
-                          />
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Used in local language description</p>
-                        </div>
-                        
+                        {/* Author Q-ID - Now First */}
                         <div className="relative" ref={authorSearchRef}>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Author Q-ID
@@ -517,7 +516,7 @@
                               <div className="absolute right-2 top-2">
                                 <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
                                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  <path className="opacity-75" fill="current Color" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
                               </div>
                             )}
@@ -540,7 +539,44 @@
                             </div>
                           )}
                           
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Search for author from Wikidata. If available, P50 will be used; otherwise P2093 with author name</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Search and select author from Wikidata. Names will be auto-filled if available.
+                          </p>
+                        </div>
+
+                        {/* Author Name English */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Author Name (English) *
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.authorName}
+                            onChange={(e) => setFormData({...formData, authorName: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            placeholder="Author Name"
+                            required
+                          />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {formData.authorQid ? 'Auto-filled from Wikidata or edit manually' : 'Used in English description and P2093 if no Q-ID provided'}
+                          </p>
+                        </div>
+                        
+                        {/* Author Name Local Language */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Author Name in Local Language
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.secondLangAuthorName}
+                            onChange={(e) => setFormData({...formData, secondLangAuthorName: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            placeholder={selectedLanguage?.authorPlaceholder || 'e.g., Author Name'}
+                          />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {formData.authorQid ? 'Auto-filled from Wikidata or edit manually' : 'Used in local language description'}
+                          </p>
                         </div>
                       </div>
                     </div>
