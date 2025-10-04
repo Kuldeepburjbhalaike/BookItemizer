@@ -18,7 +18,7 @@
     <div id="root"></div>
     
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
         
         function Bookitemizer() {
           const [formData, setFormData] = useState({
@@ -36,6 +36,20 @@
           
           const [copied, setCopied] = useState(false);
           const [darkMode, setDarkMode] = useState(false);
+          
+          // Search states
+          const [authorSearchQuery, setAuthorSearchQuery] = useState('');
+          const [authorSearchResults, setAuthorSearchResults] = useState([]);
+          const [showAuthorResults, setShowAuthorResults] = useState(false);
+          const [authorLoading, setAuthorLoading] = useState(false);
+          
+          const [publisherSearchQuery, setPublisherSearchQuery] = useState('');
+          const [publisherSearchResults, setPublisherSearchResults] = useState([]);
+          const [showPublisherResults, setShowPublisherResults] = useState(false);
+          const [publisherLoading, setPublisherLoading] = useState(false);
+          
+          const authorSearchRef = useRef(null);
+          const publisherSearchRef = useRef(null);
 
           useEffect(() => {
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -45,9 +59,100 @@
             }
           }, []);
 
+          // Close dropdowns when clicking outside
+          useEffect(() => {
+            const handleClickOutside = (event) => {
+              if (authorSearchRef.current && !authorSearchRef.current.contains(event.target)) {
+                setShowAuthorResults(false);
+              }
+              if (publisherSearchRef.current && !publisherSearchRef.current.contains(event.target)) {
+                setShowPublisherResults(false);
+              }
+            };
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+          }, []);
+
           const toggleDarkMode = () => {
             setDarkMode(!darkMode);
             document.documentElement.classList.toggle('dark');
+          };
+
+          const searchWikidata = async (query, type) => {
+            if (query.length < 2) return [];
+            
+            try {
+              const instanceOf = type === 'author' ? 'Q5' : 'Q2085381'; // Q5 = human, Q2085381 = publisher
+              const response = await fetch(
+                `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=en&limit=10&format=json&origin=*&type=item`
+              );
+              const data = await response.json();
+              
+              // Filter results to show only relevant items
+              const results = data.search || [];
+              return results.map(item => ({
+                id: item.id,
+                label: item.label,
+                description: item.description || 'No description available'
+              }));
+            } catch (error) {
+              console.error('Wikidata search error:', error);
+              return [];
+            }
+          };
+
+          const handleAuthorSearch = async (value) => {
+            setAuthorSearchQuery(value);
+            setShowAuthorResults(true);
+            
+            if (value.length < 2) {
+              setAuthorSearchResults([]);
+              return;
+            }
+            
+            setAuthorLoading(true);
+            const results = await searchWikidata(value, 'author');
+            setAuthorSearchResults(results);
+            setAuthorLoading(false);
+          };
+
+          const handlePublisherSearch = async (value) => {
+            setPublisherSearchQuery(value);
+            setShowPublisherResults(true);
+            
+            if (value.length < 2) {
+              setPublisherSearchResults([]);
+              return;
+            }
+            
+            setPublisherLoading(true);
+            const results = await searchWikidata(value, 'publisher');
+            setPublisherSearchResults(results);
+            setPublisherLoading(false);
+          };
+
+          const selectAuthor = (result) => {
+            setFormData({...formData, authorQid: result.id});
+            setAuthorSearchQuery(result.label);
+            setShowAuthorResults(false);
+          };
+
+          const selectPublisher = (result) => {
+            setFormData({...formData, publisherQid: result.id});
+            setPublisherSearchQuery(result.label);
+            setShowPublisherResults(false);
+          };
+
+          const clearAuthorSearch = () => {
+            setFormData({...formData, authorQid: ''});
+            setAuthorSearchQuery('');
+            setAuthorSearchResults([]);
+          };
+
+          const clearPublisherSearch = () => {
+            setFormData({...formData, publisherQid: ''});
+            setPublisherSearchQuery('');
+            setPublisherSearchResults([]);
           };
 
           const languages = [
@@ -85,26 +190,10 @@
             return languages.find(lang => lang.code === formData.secondLangCode);
           };
 
-          const validateQID = (value) => {
-            if (value === '') return value;
-            const qidPattern = /^Q\d*$/;
-            return qidPattern.test(value) ? value : formData.authorQid;
-          };
-
           const validateYear = (value) => {
             if (value === '') return value;
             const yearPattern = /^\d{0,4}$/;
             return yearPattern.test(value) ? value : formData.publicationYear;
-          };
-
-          const handleAuthorQidChange = (e) => {
-            const value = e.target.value.toUpperCase();
-            setFormData({...formData, authorQid: validateQID(value)});
-          };
-
-          const handlePublisherQidChange = (e) => {
-            const value = e.target.value.toUpperCase();
-            setFormData({...formData, publisherQid: validateQID(value)});
           };
 
           const handleYearChange = (e) => {
@@ -266,7 +355,6 @@
 
               <div className="max-w-4xl mx-auto">
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 mb-6 transition-colors duration-200">
-                  {/* Header with theme toggle */}
                   <div className="flex justify-between items-center mb-6">
                     <div>
                       <h1 className="text-3xl font-bold text-indigo-900 dark:text-indigo-300 mb-2">
@@ -392,19 +480,67 @@
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Used in local language description</p>
                         </div>
                         
-                        <div>
+                        <div className="relative" ref={authorSearchRef}>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Author Q-ID
                           </label>
-                          <input
-                            type="text"
-                            value={formData.authorQid}
-                            onChange={handleAuthorQidChange}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                            placeholder="Q123456"
-                            pattern="^Q\d+$"
-                          />
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Format: Q followed by numbers (e.g., Q123456). If available, P50 will be used; otherwise P2093 with author name</p>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={formData.authorQid ? `${formData.authorQid} (${authorSearchQuery})` : authorSearchQuery}
+                              onChange={(e) => {
+                                if (!formData.authorQid) {
+                                  handleAuthorSearch(e.target.value);
+                                }
+                              }}
+                              onFocus={() => {
+                                if (!formData.authorQid && authorSearchQuery.length >= 2) {
+                                  setShowAuthorResults(true);
+                                }
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 pr-10"
+                              placeholder="Search for author..."
+                            />
+                            {formData.authorQid && (
+                              <button
+                                type="button"
+                                onClick={clearAuthorSearch}
+                                className="absolute right-2 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                title="Clear selection"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
+                            {authorLoading && (
+                              <div className="absolute right-2 top-2">
+                                <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {showAuthorResults && authorSearchResults.length > 0 && (
+                            <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                              {authorSearchResults.map((result) => (
+                                <div
+                                  key={result.id}
+                                  onClick={() => selectAuthor(result)}
+                                  className="px-4 py-3 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                                >
+                                  <div className="font-medium text-gray-900 dark:text-gray-100">
+                                    {result.label} <span className="text-sm text-gray-500 dark:text-gray-400">({result.id})</span>
+                                  </div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">{result.description}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Search for author from Wikidata. If available, P50 will be used; otherwise P2093 with author name</p>
                         </div>
                       </div>
                     </div>
@@ -412,19 +548,67 @@
                     <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
                       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Publication Information</h3>
                       <div className="space-y-4">
-                        <div>
+                        <div className="relative" ref={publisherSearchRef}>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Publisher Q-ID (P123)
+                            Publisher (P123)
                           </label>
-                          <input
-                            type="text"
-                            value={formData.publisherQid}
-                            onChange={handlePublisherQidChange}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                            placeholder="Q123456"
-                            pattern="^Q\d+$"
-                          />
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Format: Q followed by numbers. Wikidata Q-ID of the publisher (edition only)</p>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={formData.publisherQid ? `${formData.publisherQid} (${publisherSearchQuery})` : publisherSearchQuery}
+                              onChange={(e) => {
+                                if (!formData.publisherQid) {
+                                  handlePublisherSearch(e.target.value);
+                                }
+                              }}
+                              onFocus={() => {
+                                if (!formData.publisherQid && publisherSearchQuery.length >= 2) {
+                                  setShowPublisherResults(true);
+                                }
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 pr-10"
+                              placeholder="Search for publisher..."
+                            />
+                            {formData.publisherQid && (
+                              <button
+                                type="button"
+                                onClick={clearPublisherSearch}
+                                className="absolute right-2 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                title="Clear selection"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
+                            {publisherLoading && (
+                              <div className="absolute right-2 top-2">
+                                <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {showPublisherResults && publisherSearchResults.length > 0 && (
+                            <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                              {publisherSearchResults.map((result) => (
+                                <div
+                                  key={result.id}
+                                  onClick={() => selectPublisher(result)}
+                                  className="px-4 py-3 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                                >
+                                  <div className="font-medium text-gray-900 dark:text-gray-100">
+                                    {result.label} <span className="text-sm text-gray-500 dark:text-gray-400">({result.id})</span>
+                                  </div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">{result.description}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Search for publisher from Wikidata (edition only)</p>
                         </div>
                         
                         <div>
@@ -538,7 +722,6 @@
                   </div>
                 </div>
 
-                {/* Footer */}
                 <footer className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center transition-colors duration-200">
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                     <div className="flex items-center gap-2">
@@ -558,7 +741,7 @@
                     </div>
                     <span className="hidden sm:inline text-gray-400 dark:text-gray-600">|</span>
                     <a 
-                      href="https://github.com/Kuldeepburjbhalaike/BookItemizer" 
+                      href="https://github.com/kuldeepburjbhalaike/BookItemizer" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
