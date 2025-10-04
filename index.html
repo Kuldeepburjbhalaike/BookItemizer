@@ -21,8 +21,8 @@
             authorName: '',
             authorQid: '',
             publicationYear: '',
-            workP31: 'Q47461344',
-            editionP31: 'Q3331189',
+            publisherQid: '',
+            isbn: '',
             secondLangCode: 'pa',
             secondLangLabel: '',
             secondLangAuthorName: '',
@@ -66,13 +66,51 @@
             return languages.find(lang => lang.code === formData.secondLangCode);
           };
 
+          const validateQID = (value) => {
+            // Allow empty or validate Q followed by numbers
+            if (value === '') return value;
+            const qidPattern = /^Q\d*$/;
+            return qidPattern.test(value) ? value : formData.authorQid;
+          };
+
+          const validateYear = (value) => {
+            // Allow empty or max 4 digits
+            if (value === '') return value;
+            const yearPattern = /^\d{0,4}$/;
+            return yearPattern.test(value) ? value : formData.publicationYear;
+          };
+
+          const handleAuthorQidChange = (e) => {
+            const value = e.target.value.toUpperCase();
+            setFormData({...formData, authorQid: validateQID(value)});
+          };
+
+          const handlePublisherQidChange = (e) => {
+            const value = e.target.value.toUpperCase();
+            setFormData({...formData, publisherQid: validateQID(value)});
+          };
+
+          const handleYearChange = (e) => {
+            const value = e.target.value;
+            setFormData({...formData, publicationYear: validateYear(value)});
+          };
+
+          const getISBNProperty = () => {
+            const year = parseInt(formData.publicationYear);
+            if (!year || isNaN(year)) return null;
+            return year <= 2006 ? 'P957' : 'P212';
+          };
+
           const generateQuickStatements = () => {
             if (!formData.labelEn || !formData.authorName) {
               return '';
             }
 
             let qs = '';
+            const workP31 = 'Q47461344';
+            const editionP31 = 'Q3331189';
             
+            // Work Item
             qs += 'CREATE\n';
             qs += `LAST|Len|"${formData.labelEn}"\n`;
             if (formData.secondLangLabel && formData.secondLangCode) {
@@ -91,7 +129,7 @@
               qs += `LAST|D${formData.secondLangCode}|"${secondLangDesc}"\n`;
             }
             
-            qs += `LAST|P31|${formData.workP31}\n`;
+            qs += `LAST|P31|${workP31}\n`;
             
             if (formData.authorQid) {
               qs += `LAST|P50|${formData.authorQid}\n`;
@@ -110,6 +148,7 @@
             
             qs += '\n';
             
+            // Edition Item
             qs += 'CREATE\n';
             qs += `LAST|Len|"${formData.labelEn}"\n`;
             if (formData.secondLangLabel && formData.secondLangCode) {
@@ -136,7 +175,7 @@
               qs += `LAST|D${formData.secondLangCode}|"${editionDesc}"\n`;
             }
             
-            qs += `LAST|P31|${formData.editionP31}\n`;
+            qs += `LAST|P31|${editionP31}\n`;
             
             if (formData.authorQid) {
               qs += `LAST|P50|${formData.authorQid}\n`;
@@ -153,8 +192,19 @@
               }
             }
             
+            if (formData.publisherQid) {
+              qs += `LAST|P123|${formData.publisherQid}\n`;
+            }
+            
             if (formData.publicationYear) {
               qs += `LAST|P577|+${formData.publicationYear}-00-00T00:00:00Z/9\n`;
+            }
+            
+            if (formData.isbn) {
+              const isbnProperty = getISBNProperty();
+              if (isbnProperty) {
+                qs += `LAST|${isbnProperty}|"${formData.isbn}"\n`;
+              }
             }
             
             return qs;
@@ -178,6 +228,7 @@
           };
 
           const output = generateQuickStatements();
+          const isbnProperty = getISBNProperty();
 
           return (
             <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
@@ -312,59 +363,68 @@
                           <input
                             type="text"
                             value={formData.authorQid}
-                            onChange={(e) => setFormData({...formData, authorQid: e.target.value})}
+                            onChange={handleAuthorQidChange}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             placeholder="Q123456"
+                            pattern="^Q\d+$"
                           />
-                          <p className="text-xs text-gray-500 mt-1">If available, P50 will be used; otherwise P2093 with author name</p>
+                          <p className="text-xs text-gray-500 mt-1">Format: Q followed by numbers (e.g., Q123456). If available, P50 will be used; otherwise P2093 with author name</p>
                         </div>
                       </div>
                     </div>
 
                     <div className="border-b pb-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Publication Information</h3>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Publication Year (P577)
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.publicationYear}
-                          onChange={(e) => setFormData({...formData, publicationYear: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="e.g., 2024"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Used in edition description and P577 statement (edition only)</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">P31 Values (Instance of)</h3>
-                      <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Work Item P31
+                            Publisher Q-ID (P123)
                           </label>
                           <input
                             type="text"
-                            value={formData.workP31}
-                            onChange={(e) => setFormData({...formData, workP31: e.target.value})}
+                            value={formData.publisherQid}
+                            onChange={handlePublisherQidChange}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="Q47461344"
+                            placeholder="Q123456"
+                            pattern="^Q\d+$"
                           />
+                          <p className="text-xs text-gray-500 mt-1">Format: Q followed by numbers. Wikidata Q-ID of the publisher (edition only)</p>
                         </div>
                         
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Edition Item P31
+                            Publication Year (P577)
                           </label>
                           <input
                             type="text"
-                            value={formData.editionP31}
-                            onChange={(e) => setFormData({...formData, editionP31: e.target.value})}
+                            value={formData.publicationYear}
+                            onChange={handleYearChange}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="Q3331189"
+                            placeholder="e.g., 2024"
+                            maxLength="4"
+                            pattern="\d{4}"
                           />
+                          <p className="text-xs text-gray-500 mt-1">4-digit year only. Used in edition description and P577 statement (edition only)</p>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            ISBN {isbnProperty && `(${isbnProperty === 'P957' ? 'ISBN-10' : 'ISBN-13'})`}
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.isbn}
+                            onChange={(e) => setFormData({...formData, isbn: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder={isbnProperty === 'P957' ? 'e.g., 0-123-45678-9' : 'e.g., 978-0-123-45678-9'}
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            {formData.publicationYear ? 
+                              (parseInt(formData.publicationYear) <= 2006 ? 
+                                'ISBN-10 format (P957) - up to 2006' : 
+                                'ISBN-13 format (P212) - from 2007 onwards') 
+                              : 'Enter publication year first to determine ISBN format'}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -434,8 +494,10 @@
                     <ul className="list-disc list-inside space-y-1">
                       <li>P31 = Instance of (Q47461344 for work, Q3331189 for edition)</li>
                       <li>P50 = Author (if Q-ID provided) OR P2093 = Author name string (if no Q-ID)</li>
+                      <li>P123 = Publisher (edition only, if provided)</li>
                       <li>P407 = Language of work (with P282 qualifier for Punjabi script selection)</li>
-                      <li>P577 = Publication date (edition item only)</li>
+                      <li>P577 = Publication date (edition only)</li>
+                      <li>P957 = ISBN-10 (for publications up to 2006) OR P212 = ISBN-13 (from 2007 onwards)</li>
                     </ul>
                   </div>
                 </div>
