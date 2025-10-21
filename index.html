@@ -27,6 +27,9 @@
             authorQid: '',
             publicationYear: '',
             publisherQid: '',
+            placeOfPublicationQid: '',
+            numberOfPages: '',
+            wikisourceUrl: '',
             isbn: '',
             secondLangCode: 'pa',
             secondLangLabel: '',
@@ -47,8 +50,14 @@
           const [showPublisherResults, setShowPublisherResults] = useState(false);
           const [publisherLoading, setPublisherLoading] = useState(false);
           
+          const [placeSearchQuery, setPlaceSearchQuery] = useState('');
+          const [placeSearchResults, setPlaceSearchResults] = useState([]);
+          const [showPlaceResults, setShowPlaceResults] = useState(false);
+          const [placeLoading, setPlaceLoading] = useState(false);
+          
           const authorSearchRef = useRef(null);
           const publisherSearchRef = useRef(null);
+          const placeSearchRef = useRef(null);
 
           useEffect(() => {
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -65,6 +74,9 @@
               }
               if (publisherSearchRef.current && !publisherSearchRef.current.contains(event.target)) {
                 setShowPublisherResults(false);
+              }
+              if (placeSearchRef.current && !placeSearchRef.current.contains(event.target)) {
+                setShowPlaceResults(false);
               }
             };
             document.addEventListener('mousedown', handleClickOutside);
@@ -147,15 +159,28 @@
             setPublisherLoading(false);
           };
 
+          const handlePlaceSearch = async (value) => {
+            setPlaceSearchQuery(value);
+            setShowPlaceResults(true);
+            
+            if (value.length < 2) {
+              setPlaceSearchResults([]);
+              return;
+            }
+            
+            setPlaceLoading(true);
+            const results = await searchWikidata(value, 'place');
+            setPlaceSearchResults(results);
+            setPlaceLoading(false);
+          };
+
           const selectAuthor = async (result) => {
             setFormData({...formData, authorQid: result.id});
             setAuthorSearchQuery(result.label);
             setShowAuthorResults(false);
             
-            // Fetch labels from Wikidata
             const labels = await fetchItemLabels(result.id, formData.secondLangCode);
             
-            // Update author names if labels exist in Wikidata
             setFormData(prev => ({
               ...prev,
               authorQid: result.id,
@@ -170,6 +195,12 @@
             setShowPublisherResults(false);
           };
 
+          const selectPlace = (result) => {
+            setFormData({...formData, placeOfPublicationQid: result.id});
+            setPlaceSearchQuery(result.label);
+            setShowPlaceResults(false);
+          };
+
           const clearAuthorSearch = () => {
             setFormData({...formData, authorQid: '', authorName: '', secondLangAuthorName: ''});
             setAuthorSearchQuery('');
@@ -182,6 +213,19 @@
             setPublisherSearchResults([]);
           };
 
+          const clearPlaceSearch = () => {
+            setFormData({...formData, placeOfPublicationQid: ''});
+            setPlaceSearchQuery('');
+            setPlaceSearchResults([]);
+          };
+
+          const handlePagesChange = (e) => {
+            const value = e.target.value;
+            if (value === '' || /^\d+$/.test(value)) {
+              setFormData({...formData, numberOfPages: value});
+            }
+          };
+
           const languages = [
             { code: 'pa', name: 'Punjabi (ਪੰਜਾਬੀ)', qid: 'Q58635', hasScriptOption: true, placeholder: 'ਉਦਾਹਰਨ ਕਿਤਾਬ', authorPlaceholder: 'ਲੇਖਕ ਦਾ ਨਾਮ' },
             { code: 'hi', name: 'Hindi (हिन्दी)', qid: 'Q1568', hasScriptOption: false, placeholder: 'उदाहरण पुस्तक', authorPlaceholder: 'लेखक का नाम' },
@@ -191,7 +235,7 @@
             { code: 'te', name: 'Telugu (తెలుగు)', qid: 'Q8097', hasScriptOption: false, placeholder: 'ఉదాహరణ పుస్తకం', authorPlaceholder: 'రచయిత పేరు' },
             { code: 'mr', name: 'Marathi (मराठी)', qid: 'Q1571', hasScriptOption: false, placeholder: 'उदाहरण पुस्तक', authorPlaceholder: 'लेखकाचे नाव' },
             { code: 'gu', name: 'Gujarati (ગુજરાતી)', qid: 'Q5137', hasScriptOption: false, placeholder: 'ઉદાહરણ પુસ્તક', authorPlaceholder: 'લેખકનું નામ' },
-            { code: 'kn', name: 'Kannada (ಕನ್ನಡ)', qid: 'Q33673', hasScriptOption: false, placeholder: 'ಉದಾಹರಣೆ ಪುಸ್ತಕ', authorPlaceholder: 'ಲೇಖಕರ ಹೆಸರು' },
+            { code: 'kn', name: 'Kannada (ಕನ್ನಡ)', qid: 'Q33673', hasScriptOption: false, placeholder: 'ಉದಾಹರಣೆ ಪುಸ್ತಕ', authorPlaceholder: 'ಲೇਖಕರ ಹೆಸರು' },
             { code: 'ml', name: 'Malayalam (മലയാളം)', qid: 'Q36236', hasScriptOption: false, placeholder: 'ഉദാഹരണ പുസ്തകം', authorPlaceholder: 'രചയിതാവിന്റെ പേര്' },
             { code: 'or', name: 'Odia (ଓଡ଼ିଆ)', qid: 'Q33810', hasScriptOption: false, placeholder: 'ଉଦାହରଣ ପୁସ୍ତକ', authorPlaceholder: 'ଲେଖକଙ୍କ ନାମ' },
             { code: 'as', name: 'Assamese (অসমীয়া)', qid: 'Q29401', hasScriptOption: false, placeholder: 'উদাহৰণ কিতাপ', authorPlaceholder: 'লেখকৰ নাম' },
@@ -243,6 +287,7 @@
             const workP31 = 'Q47461344';
             const editionP31 = 'Q3331189';
             
+            // Work Item
             qs += 'CREATE\n';
             qs += `LAST|Len|"${formData.labelEn}"\n`;
             if (formData.secondLangLabel && formData.secondLangCode) {
@@ -278,8 +323,14 @@
               }
             }
             
+            // Title (P1476) for work item with language qualifier
+            if (formData.secondLangLabel && formData.secondLangCode) {
+              qs += `LAST|P1476|${formData.secondLangCode}:"${formData.secondLangLabel}"\n`;
+            }
+            
             qs += '\n';
             
+            // Edition Item
             qs += 'CREATE\n';
             qs += `LAST|Len|"${formData.labelEn}"\n`;
             if (formData.secondLangLabel && formData.secondLangCode) {
@@ -323,12 +374,25 @@
               }
             }
             
+            // Title (P1476) for edition item with language qualifier
+            if (formData.secondLangLabel && formData.secondLangCode) {
+              qs += `LAST|P1476|${formData.secondLangCode}:"${formData.secondLangLabel}"\n`;
+            }
+            
             if (formData.publisherQid) {
               qs += `LAST|P123|${formData.publisherQid}\n`;
             }
             
+            if (formData.placeOfPublicationQid) {
+              qs += `LAST|P291|${formData.placeOfPublicationQid}\n`;
+            }
+            
             if (formData.publicationYear) {
               qs += `LAST|P577|+${formData.publicationYear}-00-00T00:00:00Z/9\n`;
+            }
+            
+            if (formData.numberOfPages) {
+              qs += `LAST|P1104|${formData.numberOfPages}\n`;
             }
             
             if (formData.isbn) {
@@ -336,6 +400,10 @@
               if (isbnProperty) {
                 qs += `LAST|${isbnProperty}|"${formData.isbn}"\n`;
               }
+            }
+            
+            if (formData.wikisourceUrl) {
+              qs += `LAST|P1957|"${formData.wikisourceUrl}"\n`;
             }
             
             return qs;
@@ -453,6 +521,9 @@
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                               placeholder={selectedLanguage?.placeholder || 'e.g., Example Book'}
                             />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Will be used for Title (P1476) property in both items
+                            </p>
                           </div>
                         </div>
 
@@ -467,8 +538,7 @@
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                             >
                               {punjabiScripts.map(script => (
-                                <option key={script.qid} value={script.qid}>{script.name}</option>
-                              ))}
+                                <option key={script.qid} value={script.qid}>{script.name}</option>))}
                             </select>
                           </div>
                         )}
@@ -478,7 +548,6 @@
                     <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
                       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Author Information</h3>
                       <div className="space-y-4">
-                        {/* Author Q-ID - Now First */}
                         <div className="relative" ref={authorSearchRef}>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Author Q-ID
@@ -516,7 +585,7 @@
                               <div className="absolute right-2 top-2">
                                 <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
                                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="current Color" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
                               </div>
                             )}
@@ -544,7 +613,6 @@
                           </p>
                         </div>
 
-                        {/* Author Name English */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Author Name (English) *
@@ -562,7 +630,6 @@
                           </p>
                         </div>
                         
-                        {/* Author Name Local Language */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Author Name in Local Language
@@ -646,6 +713,69 @@
                           
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Search for publisher from Wikidata (edition only)</p>
                         </div>
+
+                        <div className="relative" ref={placeSearchRef}>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Place of Publication (P291)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={formData.placeOfPublicationQid ? `${formData.placeOfPublicationQid} (${placeSearchQuery})` : placeSearchQuery}
+                              onChange={(e) => {
+                                if (!formData.placeOfPublicationQid) {
+                                  handlePlaceSearch(e.target.value);
+                                }
+                              }}
+                              onFocus={() => {
+                                if (!formData.placeOfPublicationQid && placeSearchQuery.length >= 2) {
+                                  setShowPlaceResults(true);
+                                }
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 pr-10"
+                              placeholder="Search for place..."
+                            />
+                            {formData.placeOfPublicationQid && (
+                              <button
+                                type="button"
+                                onClick={clearPlaceSearch}
+                                className="absolute right-2 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                title="Clear selection"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
+                            {placeLoading && (
+                              <div className="absolute right-2 top-2">
+                                <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {showPlaceResults && placeSearchResults.length > 0 && (
+                            <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                              {placeSearchResults.map((result) => (
+                                <div
+                                  key={result.id}
+                                  onClick={() => selectPlace(result)}
+                                  className="px-4 py-3 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                                >
+                                  <div className="font-medium text-gray-900 dark:text-gray-100">
+                                    {result.label} <span className="text-sm text-gray-500 dark:text-gray-400">({result.id})</span>
+                                  </div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">{result.description}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Search for place from Wikidata (edition only)</p>
+                        </div>
                         
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -661,6 +791,20 @@
                             pattern="\d{4}"
                           />
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">4-digit year only. Used in edition description and P577 statement (edition only)</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Number of Pages (P1104)
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.numberOfPages}
+                            onChange={handlePagesChange}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            placeholder="e.g., 256"
+                          />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Numeric values only (edition only)</p>
                         </div>
                         
                         <div>
@@ -681,6 +825,20 @@
                                 'ISBN-13 format (P212) - from 2007 onwards') 
                               : 'Enter publication year first to determine ISBN format'}
                           </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Wikisource Index Page URL (P1957)
+                          </label>
+                          <input
+                            type="url"
+                            value={formData.wikisourceUrl}
+                            onChange={(e) => setFormData({...formData, wikisourceUrl: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            placeholder="e.g., https://wikisource.org/wiki/Index:Example.pdf"
+                          />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Full URL to Wikisource index page (edition only)</p>
                         </div>
                       </div>
                     </div>
@@ -751,9 +909,13 @@
                       <li>P31 = Instance of (Q47461344 for work, Q3331189 for edition)</li>
                       <li>P50 = Author (if Q-ID provided) OR P2093 = Author name string (if no Q-ID)</li>
                       <li>P123 = Publisher (edition only, if provided)</li>
+                      <li>P291 = Place of publication (edition only, if provided)</li>
                       <li>P407 = Language of work (with P282 qualifier for Punjabi script selection)</li>
                       <li>P577 = Publication date (edition only)</li>
                       <li>P957 = ISBN-10 (for publications up to 2006) OR P212 = ISBN-13 (from 2007 onwards)</li>
+                      <li>P1104 = Number of pages (edition only, if provided)</li>
+                      <li>P1476 = Title with language qualifier (both work and edition items, from local label)</li>
+                      <li>P1957 = Wikisource index page URL (edition only, if provided)</li>
                     </ul>
                   </div>
                 </div>
@@ -794,7 +956,8 @@
           );
         }
         
-        ReactDOM.render(<Bookitemizer />, document.getElementById('root'));
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Bookitemizer />);
     </script>
 </body>
 </html>
