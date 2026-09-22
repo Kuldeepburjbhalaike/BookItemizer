@@ -21,15 +21,31 @@
         const { useState, useEffect, useRef } = React;
         
         function Bookitemizer() {
+          const [mode, setMode] = useState('both');
+          const [existingWorkQid, setExistingWorkQid] = useState('');
+          const [isWorkVerified, setIsWorkVerified] = useState(false);
+          const [workSearchQuery, setWorkSearchQuery] = useState('');
+          const [workSearchResults, setWorkSearchResults] = useState([]);
+          const [showWorkResults, setShowWorkResults] = useState(false);
+          const [workLoading, setWorkLoading] = useState(false);
+          const [workOffset, setWorkOffset] = useState(0);
+          const [workHasMore, setWorkHasMore] = useState(true);
+
           const [formData, setFormData] = useState({
             labelEn: '',
             authorName: '',
             authorQid: '',
+            editorName: '',
+            editorQid: '',
+            translatorName: '',
+            translatorQid: '',
             publicationYear: '',
             publisherQid: '',
             placeOfPublicationQid: '',
             numberOfPages: '',
             wikisourceUrl: '',
+            commonsFile: '',
+            titlePageNumber: '',
             isbn: '',
             secondLangCode: 'pa',
             secondLangLabel: '',
@@ -44,6 +60,16 @@
           const [authorSearchResults, setAuthorSearchResults] = useState([]);
           const [showAuthorResults, setShowAuthorResults] = useState(false);
           const [authorLoading, setAuthorLoading] = useState(false);
+
+          const [editorSearchQuery, setEditorSearchQuery] = useState('');
+          const [editorSearchResults, setEditorSearchResults] = useState([]);
+          const [showEditorResults, setShowEditorResults] = useState(false);
+          const [editorLoading, setEditorLoading] = useState(false);
+
+          const [translatorSearchQuery, setTranslatorSearchQuery] = useState('');
+          const [translatorSearchResults, setTranslatorSearchResults] = useState([]);
+          const [showTranslatorResults, setShowTranslatorResults] = useState(false);
+          const [translatorLoading, setTranslatorLoading] = useState(false);
           
           const [publisherSearchQuery, setPublisherSearchQuery] = useState('');
           const [publisherSearchResults, setPublisherSearchResults] = useState([]);
@@ -54,10 +80,21 @@
           const [placeSearchResults, setPlaceSearchResults] = useState([]);
           const [showPlaceResults, setShowPlaceResults] = useState(false);
           const [placeLoading, setPlaceLoading] = useState(false);
+
+          // Wikimedia Commons File Search state
+          const [commonsSearchQuery, setCommonsSearchQuery] = useState('');
+          const [commonsSearchResults, setCommonsSearchResults] = useState([]);
+          const [showCommonsResults, setShowCommonsResults] = useState(false);
+          const [commonsLoading, setCommonsLoading] = useState(false);
           
+          const workSearchRef = useRef(null);
+          const workDropdownRef = useRef(null);
           const authorSearchRef = useRef(null);
+          const editorSearchRef = useRef(null);
+          const translatorSearchRef = useRef(null);
           const publisherSearchRef = useRef(null);
           const placeSearchRef = useRef(null);
+          const commonsSearchRef = useRef(null);
 
           useEffect(() => {
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -69,15 +106,13 @@
 
           useEffect(() => {
             const handleClickOutside = (event) => {
-              if (authorSearchRef.current && !authorSearchRef.current.contains(event.target)) {
-                setShowAuthorResults(false);
-              }
-              if (publisherSearchRef.current && !publisherSearchRef.current.contains(event.target)) {
-                setShowPublisherResults(false);
-              }
-              if (placeSearchRef.current && !placeSearchRef.current.contains(event.target)) {
-                setShowPlaceResults(false);
-              }
+              if (workSearchRef.current && !workSearchRef.current.contains(event.target)) setShowWorkResults(false);
+              if (authorSearchRef.current && !authorSearchRef.current.contains(event.target)) setShowAuthorResults(false);
+              if (editorSearchRef.current && !editorSearchRef.current.contains(event.target)) setShowEditorResults(false);
+              if (translatorSearchRef.current && !translatorSearchRef.current.contains(event.target)) setShowTranslatorResults(false);
+              if (publisherSearchRef.current && !publisherSearchRef.current.contains(event.target)) setShowPublisherResults(false);
+              if (placeSearchRef.current && !placeSearchRef.current.contains(event.target)) setShowPlaceResults(false);
+              if (commonsSearchRef.current && !commonsSearchRef.current.contains(event.target)) setShowCommonsResults(false);
             };
             document.addEventListener('mousedown', handleClickOutside);
             return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -89,13 +124,13 @@
           };
 
           const fetchItemLabels = async (qid, langCode) => {
-            if (langCode === 'none') return { en: '', local: '' };
+            if (!qid || langCode === 'none') return { en: '', local: '' };
             try {
               const response = await fetch(
                 `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qid}&props=labels&languages=en|${langCode}&format=json&origin=*`
               );
               const data = await response.json();
-              const entity = data.entities[qid];
+              const entity = data.entities?.[qid];
               
               if (entity && entity.labels) {
                 return {
@@ -110,15 +145,136 @@
             }
           };
 
-          const searchWikidata = async (query, type) => {
-            if (query.length < 2) return [];
+          const verifyWorkSubclass = async (qid) => {
+            if (!qid || !/^Q\d+$/i.test(qid)) return false;
+            const sparql = `
+              ASK {
+                wd:${qid.toUpperCase()} wdt:P31/wdt:P279* ?type .
+                FILTER(?type IN (wd:Q47461344, wd:Q7725634, wd:Q3594128, wd:Q571, wd:Q17537576))
+              }
+            `;
+            try {
+              const response = await fetch(`https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`, {
+                headers: { 'Accept': 'application/sparql-results+json' }
+              });
+              const data = await response.json();
+              return data.boolean === true;
+            } catch (err) {
+              console.warn('SPARQL verification failed, attempting claims fallback:', err);
+              try {
+                const response = await fetch(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qid.toUpperCase()}&props=claims&format=json&origin=*`);
+                const data = await response.json();
+                const p31Claims = data.entities?.[qid.toUpperCase()]?.claims?.P31 || [];
+                const allowedTypes = ['Q47461344', 'Q7725634', 'Q3594128', 'Q571', 'Q17537576'];
+                return p31Claims.some(c => allowedTypes.includes(c.mainsnak?.datavalue?.value?.id));
+              } catch (e) {
+                return false;
+              }
+            }
+          };
+
+          useEffect(() => {
+            const updateLanguageLabels = async () => {
+              if (formData.secondLangCode === 'none') {
+                setFormData(prev => ({ ...prev, secondLangLabel: '', secondLangAuthorName: '' }));
+                return;
+              }
+
+              if (existingWorkQid) {
+                const workLabels = await fetchItemLabels(existingWorkQid, formData.secondLangCode);
+                setFormData(prev => ({ ...prev, secondLangLabel: workLabels.local || '' }));
+              }
+
+              if (formData.authorQid) {
+                const authorLabels = await fetchItemLabels(formData.authorQid, formData.secondLangCode);
+                setFormData(prev => ({ ...prev, secondLangAuthorName: authorLabels.local || '' }));
+              }
+            };
+
+            updateLanguageLabels();
+          }, [formData.secondLangCode, existingWorkQid, formData.authorQid]);
+
+          const searchWorks = async (query, offset = 0) => {
+            const trimmed = query.trim();
+            if (!trimmed || trimmed.length < 2) return [];
+
+            if (/^Q\d+$/i.test(trimmed)) {
+              try {
+                const qid = trimmed.toUpperCase();
+                const response = await fetch(
+                  `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qid}&props=labels|descriptions&languages=en|pa|hi|ur|bn|ta|te|mr|gu|kn|ml|or|as|sa&format=json&origin=*`
+                );
+                const data = await response.json();
+                const item = data.entities?.[qid];
+                if (item && !item.missing) {
+                  const label = item.labels?.en?.value || Object.values(item.labels || {})[0]?.value || qid;
+                  const desc = item.descriptions?.en?.value || Object.values(item.descriptions || {})[0]?.value || 'No description available';
+                  return [{ id: qid, label, description: desc }];
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            }
+
+            const sparqlQuery = `
+              SELECT DISTINCT ?item ?itemLabel ?itemDescription WHERE {
+                SERVICE wikibase:mwapi {
+                  bd:serviceParam wikibase:endpoint "www.wikidata.org" ;
+                                  wikibase:api "EntitySearch" ;
+                                  mwapi:search "${trimmed}" ;
+                                  mwapi:language "en" .
+                  ?item wikibase:apiOutputItem mwapi:item .
+                }
+                ?item wdt:P31/wdt:P279* ?type .
+                FILTER(?type IN (wd:Q47461344, wd:Q7725634, wd:Q3594128, wd:Q571, wd:Q17537576))
+                SERVICE wikibase:label { bd:serviceParam wikibase:language "en,pa,hi,bn,ur,ta,te,mr,gu". }
+              }
+              OFFSET ${offset}
+              LIMIT 20
+            `;
+
+            try {
+              const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparqlQuery)}&format=json`;
+              const response = await fetch(url, {
+                headers: { 'Accept': 'application/sparql-results+json' }
+              });
+              const data = await response.json();
+              const bindings = data.results?.bindings || [];
+
+              if (bindings.length > 0) {
+                return bindings.map(b => ({
+                  id: b.item.value.replace('http://www.wikidata.org/entity/', ''),
+                  label: b.itemLabel ? b.itemLabel.value : 'No label',
+                  description: b.itemDescription ? b.itemDescription.value : 'No description available'
+                }));
+              }
+            } catch (err) {
+              console.warn('SPARQL search failed, falling back:', err);
+            }
+
+            try {
+              const fallbackUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(trimmed)}&language=en&limit=20&continue=${offset}&format=json&origin=*&type=item`;
+              const fallbackResp = await fetch(fallbackUrl);
+              const fallbackData = await fallbackResp.json();
+              return (fallbackData.search || []).map(item => ({
+                id: item.id,
+                label: item.label,
+                description: item.description || 'No description available'
+              }));
+            } catch (fallbackErr) {
+              console.error('Fallback search error:', fallbackErr);
+              return [];
+            }
+          };
+
+          const searchWikidataGeneral = async (query) => {
+            if (!query || query.trim().length < 2) return [];
             try {
               const response = await fetch(
-                `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=en&limit=10&format=json&origin=*&type=item`
+                `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query.trim())}&language=en&limit=15&format=json&origin=*&type=item`
               );
               const data = await response.json();
-              const results = data.search || [];
-              return results.map(item => ({
+              return (data.search || []).map(item => ({
                 id: item.id,
                 label: item.label,
                 description: item.description || 'No description available'
@@ -129,43 +285,192 @@
             }
           };
 
+          // Search Wikimedia Commons in Namespace 6 (File:)
+          const searchCommonsFiles = async (query) => {
+            let cleanQuery = query.trim();
+            cleanQuery = cleanQuery.replace(/^https?:\/\/commons\.wikimedia\.org\/wiki\/File:/i, '');
+            cleanQuery = cleanQuery.replace(/^https?:\/\/commons\.wikimedia\.org\/wiki\//i, '');
+            cleanQuery = cleanQuery.replace(/^File:/i, '');
+
+            if (!cleanQuery || cleanQuery.length < 2) return [];
+
+            try {
+              const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(cleanQuery)}&gsrnamespace=6&gsrlimit=15&prop=imageinfo&iiprop=url|thumburl&iiurlwidth=80&format=json&origin=*`;
+              const response = await fetch(url);
+              const data = await response.json();
+              
+              if (!data.query || !data.query.pages) return [];
+
+              return Object.values(data.query.pages).map(p => {
+                const titleWithoutPrefix = (p.title || '').replace(/^File:/i, '');
+                const thumb = p.imageinfo?.[0]?.thumburl || '';
+                return {
+                  title: titleWithoutPrefix,
+                  fullTitle: p.title,
+                  thumb: thumb
+                };
+              });
+            } catch (err) {
+              console.error('Wikimedia Commons search error:', err);
+              return [];
+            }
+          };
+
+          const handleCommonsSearch = async (value) => {
+            setCommonsSearchQuery(value);
+            setShowCommonsResults(true);
+
+            if (value.trim().length < 2) {
+              setCommonsSearchResults([]);
+              return;
+            }
+
+            setCommonsLoading(true);
+            const results = await searchCommonsFiles(value);
+            setCommonsSearchResults(results);
+            setCommonsLoading(false);
+          };
+
+          const selectCommonsFile = (result) => {
+            setFormData(prev => ({ ...prev, commonsFile: result.title }));
+            setCommonsSearchQuery(result.title);
+            setShowCommonsResults(false);
+          };
+
+          const clearCommonsFile = () => {
+            setFormData(prev => ({ ...prev, commonsFile: '' }));
+            setCommonsSearchQuery('');
+            setCommonsSearchResults([]);
+          };
+
+          const handleWorkSearch = async (value) => {
+            setWorkSearchQuery(value);
+            setShowWorkResults(true);
+            setWorkOffset(0);
+            setWorkHasMore(true);
+
+            if (value.length < 2) {
+              setWorkSearchResults([]);
+              return;
+            }
+            setWorkLoading(true);
+            const results = await searchWorks(value, 0);
+            setWorkSearchResults(results);
+            setWorkLoading(false);
+            if (results.length < 20) setWorkHasMore(false);
+          };
+
+          const loadMoreWorks = async () => {
+            if (workLoading || !workHasMore || workSearchQuery.length < 2) return;
+            setWorkLoading(true);
+            const nextOffset = workOffset + 20;
+            const moreResults = await searchWorks(workSearchQuery, nextOffset);
+            if (moreResults.length === 0) {
+              setWorkHasMore(false);
+            } else {
+              setWorkSearchResults(prev => [...prev, ...moreResults]);
+              setWorkOffset(nextOffset);
+              if (moreResults.length < 20) setWorkHasMore(false);
+            }
+            setWorkLoading(false);
+          };
+
+          const handleWorkScroll = (e) => {
+            const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+            if (scrollHeight - scrollTop - clientHeight < 40) {
+              loadMoreWorks();
+            }
+          };
+
+          const selectWork = async (result) => {
+            setExistingWorkQid(result.id);
+            setWorkSearchQuery(result.label);
+            setShowWorkResults(false);
+            setWorkLoading(true);
+
+            const verified = await verifyWorkSubclass(result.id);
+            setIsWorkVerified(verified);
+
+            try {
+              const response = await fetch(
+                `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${result.id}&props=labels|claims&format=json&origin=*`
+              );
+              const data = await response.json();
+              const entity = data.entities?.[result.id];
+
+              if (entity) {
+                const enLabel = entity.labels?.en?.value || '';
+                const localLabel = entity.labels?.[formData.secondLangCode]?.value || '';
+
+                let authorQid = '';
+                let authorNameEn = '';
+                let authorNameLocal = '';
+
+                if (entity.claims?.P50?.[0]?.mainsnak?.datavalue?.value?.id) {
+                  authorQid = entity.claims.P50[0].mainsnak.datavalue.value.id;
+                  const authorLabels = await fetchItemLabels(authorQid, formData.secondLangCode);
+                  authorNameEn = authorLabels.en || '';
+                  authorNameLocal = authorLabels.local || '';
+                } else if (entity.claims?.P2093?.[0]?.mainsnak?.datavalue?.value) {
+                  authorNameEn = entity.claims.P2093[0].mainsnak.datavalue.value;
+                }
+
+                let matchedLangCode = formData.secondLangCode;
+                let scriptQid = formData.punjabiScript;
+
+                if (entity.claims?.P407?.[0]) {
+                  const langClaim = entity.claims.P407[0];
+                  const langQid = langClaim.mainsnak?.datavalue?.value?.id;
+                  const foundLang = languages.find(l => l.qid === langQid);
+                  if (foundLang) {
+                    matchedLangCode = foundLang.code;
+                  }
+                  if (langClaim.qualifiers?.P282?.[0]?.datavalue?.value?.id) {
+                    scriptQid = langClaim.qualifiers.P282[0].datavalue.value.id;
+                  }
+                }
+
+                setFormData(prev => ({
+                  ...prev,
+                  labelEn: enLabel,
+                  secondLangCode: matchedLangCode,
+                  secondLangLabel: localLabel,
+                  authorQid: authorQid,
+                  authorName: authorNameEn,
+                  secondLangAuthorName: authorNameLocal,
+                  punjabiScript: scriptQid
+                }));
+
+                if (authorQid) {
+                  setAuthorSearchQuery(authorNameEn || authorQid);
+                } else {
+                  setAuthorSearchQuery('');
+                }
+              }
+            } catch (err) {
+              console.error('Error fetching work details:', err);
+            } finally {
+              setWorkLoading(false);
+            }
+          };
+
+          const clearWorkSearch = () => {
+            setExistingWorkQid('');
+            setIsWorkVerified(false);
+            setWorkSearchQuery('');
+            setWorkSearchResults([]);
+            setWorkOffset(0);
+            setWorkHasMore(true);
+          };
+
           const handleAuthorSearch = async (value) => {
             setAuthorSearchQuery(value);
             setShowAuthorResults(true);
-            if (value.length < 2) {
-              setAuthorSearchResults([]);
-              return;
-            }
+            if (value.length < 2) { setAuthorSearchResults([]); return; }
             setAuthorLoading(true);
-            const results = await searchWikidata(value, 'author');
+            const results = await searchWikidataGeneral(value);
             setAuthorSearchResults(results);
             setAuthorLoading(false);
-          };
-
-          const handlePublisherSearch = async (value) => {
-            setPublisherSearchQuery(value);
-            setShowPublisherResults(true);
-            if (value.length < 2) {
-              setPublisherSearchResults([]);
-              return;
-            }
-            setPublisherLoading(true);
-            const results = await searchWikidata(value, 'publisher');
-            setPublisherSearchResults(results);
-            setPublisherLoading(false);
-          };
-
-          const handlePlaceSearch = async (value) => {
-            setPlaceSearchQuery(value);
-            setShowPlaceResults(true);
-            if (value.length < 2) {
-              setPlaceSearchResults([]);
-              return;
-            }
-            setPlaceLoading(true);
-            const results = await searchWikidata(value, 'place');
-            setPlaceSearchResults(results);
-            setPlaceLoading(false);
           };
 
           const selectAuthor = async (result) => {
@@ -176,21 +481,9 @@
             setFormData(prev => ({
               ...prev,
               authorQid: result.id,
-              authorName: labels.en || prev.authorName,
-              secondLangAuthorName: labels.local || prev.secondLangAuthorName
+              authorName: labels.en || '',
+              secondLangAuthorName: labels.local || ''
             }));
-          };
-
-          const selectPublisher = (result) => {
-            setFormData({...formData, publisherQid: result.id});
-            setPublisherSearchQuery(result.label);
-            setShowPublisherResults(false);
-          };
-
-          const selectPlace = (result) => {
-            setFormData({...formData, placeOfPublicationQid: result.id});
-            setPlaceSearchQuery(result.label);
-            setShowPlaceResults(false);
           };
 
           const clearAuthorSearch = () => {
@@ -199,10 +492,86 @@
             setAuthorSearchResults([]);
           };
 
+          const handleEditorSearch = async (value) => {
+            setEditorSearchQuery(value);
+            setShowEditorResults(true);
+            if (value.length < 2) { setEditorSearchResults([]); return; }
+            setEditorLoading(true);
+            const results = await searchWikidataGeneral(value);
+            setEditorSearchResults(results);
+            setEditorLoading(false);
+          };
+
+          const selectEditor = (result) => {
+            setFormData({...formData, editorQid: result.id, editorName: result.label});
+            setEditorSearchQuery(result.label);
+            setShowEditorResults(false);
+          };
+
+          const clearEditorSearch = () => {
+            setFormData({...formData, editorQid: '', editorName: ''});
+            setEditorSearchQuery('');
+            setEditorSearchResults([]);
+          };
+
+          const handleTranslatorSearch = async (value) => {
+            setTranslatorSearchQuery(value);
+            setShowTranslatorResults(true);
+            if (value.length < 2) { setTranslatorSearchResults([]); return; }
+            setTranslatorLoading(true);
+            const results = await searchWikidataGeneral(value);
+            setTranslatorSearchResults(results);
+            setTranslatorLoading(false);
+          };
+
+          const selectTranslator = (result) => {
+            setFormData({...formData, translatorQid: result.id, translatorName: result.label});
+            setTranslatorSearchQuery(result.label);
+            setShowTranslatorResults(false);
+          };
+
+          const clearTranslatorSearch = () => {
+            setFormData({...formData, translatorQid: '', translatorName: ''});
+            setTranslatorSearchQuery('');
+            setTranslatorSearchResults([]);
+          };
+
+          const handlePublisherSearch = async (value) => {
+            setPublisherSearchQuery(value);
+            setShowPublisherResults(true);
+            if (value.length < 2) { setPublisherSearchResults([]); return; }
+            setPublisherLoading(true);
+            const results = await searchWikidataGeneral(value);
+            setPublisherSearchResults(results);
+            setPublisherLoading(false);
+          };
+
+          const selectPublisher = (result) => {
+            setFormData({...formData, publisherQid: result.id});
+            setPublisherSearchQuery(result.label);
+            setShowPublisherResults(false);
+          };
+
           const clearPublisherSearch = () => {
             setFormData({...formData, publisherQid: ''});
             setPublisherSearchQuery('');
             setPublisherSearchResults([]);
+          };
+
+          const handlePlaceSearch = async (value) => {
+            setPlaceSearchQuery(value);
+            setShowPlaceResults(true);
+            if (value.length < 2) { setPlaceSearchResults([]); return; }
+            setPlaceLoading(true);
+            const results = await searchWikidataGeneral(value);
+            setPlaceSearchResults(results);
+            setPlaceLoading(false);
+          };
+
+          const selectPlace = (result) => {
+            setFormData({...formData, placeOfPublicationQid: result.id});
+            setPlaceSearchQuery(result.label);
+            setShowPlaceResults(false);
           };
 
           const clearPlaceSearch = () => {
@@ -219,19 +588,19 @@
           };
 
           const languages = [
-            { code: 'none', name: 'None (English Only)', qid: '', hasScriptOption: false, placeholder: '', authorPlaceholder: '' },
+            { code: 'none', name: 'None (English Only)', qid: 'Q1860', hasScriptOption: false, placeholder: '', authorPlaceholder: '' },
             { code: 'pa', name: 'Punjabi (ਪੰਜਾਬੀ)', qid: 'Q58635', hasScriptOption: true, placeholder: 'ਉਦਾਹਰਨ ਕਿਤਾਬ', authorPlaceholder: 'ਲੇਖਕ ਦਾ ਨਾਮ' },
             { code: 'hi', name: 'Hindi (हिन्दी)', qid: 'Q1568', hasScriptOption: false, placeholder: 'उदाहरण पुस्तक', authorPlaceholder: 'लेखक का नाम' },
             { code: 'ur', name: 'Urdu (اردو)', qid: 'Q1617', hasScriptOption: false, placeholder: 'مثال کتاب', authorPlaceholder: 'مصنف کا نام' },
-            { code: 'bn', name: 'Bengali (বাংলা)', qid: 'Q9610', hasScriptOption: false, placeholder: 'उदाहरण বই', authorPlaceholder: 'লেখকের নাম' },
+            { code: 'bn', name: 'Bengali (বাংলা)', qid: 'Q9610', hasScriptOption: false, placeholder: 'উদাহরণ বই', authorPlaceholder: 'লেখকের নাম' },
             { code: 'ta', name: 'Tamil (தமிழ்)', qid: 'Q5885', hasScriptOption: false, placeholder: 'உதாரண புத்தகம்', authorPlaceholder: 'ஆசிரியர் பெயர்' },
-            { code: 'te', name: 'Telugu (తెలుగు)', qid: 'Q8097', hasScriptOption: false, placeholder: 'ఉదాਹరణ పుస్తకం', authorPlaceholder: 'రచయిత పేరు' },
+            { code: 'te', name: 'Telugu (తెలుగు)', qid: 'Q8097', hasScriptOption: false, placeholder: 'ఉదాహరణ పుస్తకం', authorPlaceholder: 'రచయిత పేరు' },
             { code: 'mr', name: 'Marathi (मराठी)', qid: 'Q1571', hasScriptOption: false, placeholder: 'उदाहरण पुस्तक', authorPlaceholder: 'लेखकाचे नाव' },
-            { code: 'gu', name: 'Gujarati (ગુજરાતી)', qid: 'Q5137', hasScriptOption: false, placeholder: 'ઉદાહરણ પુસ્તક', authorPlaceholder: 'લેਖਕનું નામ' },
-            { code: 'kn', name: 'Kannada (ಕನ್ನಡ)', qid: 'Q33673', hasScriptOption: false, placeholder: 'ಉਦਾਹਰਣੇ ಪುಸ್ತಕ', authorPlaceholder: 'ਲੇਖಕರ ಹೆಸರು' },
-            { code: 'ml', name: 'Malayalam (മലയാളം)', qid: 'Q36236', hasScriptOption: false, placeholder: 'ਉਦਾਹਰਣ ਪੁਸਤਕ', authorPlaceholder: 'രചയിതാവിന്റെ പേര്' },
-            { code: 'or', name: 'Odia (ଓଡ଼ਿਆ)', qid: 'Q33810', hasScriptOption: false, placeholder: 'ଉଦਾਹਰਣ ਪੁਸਤਕ', authorPlaceholder: 'ਲੇਖਕଙ୍କ ਨਾਮ' },
-            { code: 'as', name: 'Assamese (অসমੀয়া)', qid: 'Q29401', hasScriptOption: false, placeholder: 'উদাহৰণ কিতাপ', authorPlaceholder: 'লেখকৰ নাম' },
+            { code: 'gu', name: 'Gujarati (ગુજરાતી)', qid: 'Q5137', hasScriptOption: false, placeholder: 'ઉદાહરણ પુસ્તક', authorPlaceholder: 'લેખકનું નામ' },
+            { code: 'kn', name: 'Kannada (ಕನ್ನಡ)', qid: 'Q33673', hasScriptOption: false, placeholder: 'ಉದಾಹರಣೆ ಪುಸ್ತಕ', authorPlaceholder: 'ಲೇਖಕರ ಹೆಸರು' },
+            { code: 'ml', name: 'Malayalam (മലയാളം)', qid: 'Q36236', hasScriptOption: false, placeholder: 'ഉദാഹരണ പുസ്തകം', authorPlaceholder: 'രചയിതാവിന്റെ പേര്' },
+            { code: 'or', name: 'Odia (ଓଡ଼ਿਆ)', qid: 'Q33810', hasScriptOption: false, placeholder: 'ଉଦାହରଣ ପୁସ୍ਤਕ', authorPlaceholder: 'ਲੇਖਕଙ୍କ ନਾਮ' },
+            { code: 'as', name: 'Assamese (অসমীয়া)', qid: 'Q29401', hasScriptOption: false, placeholder: 'উদাহৰণ কিতাপ', authorPlaceholder: 'লেখকৰ নাম' },
             { code: 'sa', name: 'Sanskrit (संस्कृतम्)', qid: 'Q11059', hasScriptOption: false, placeholder: 'उदाहरणपुस्तकम्', authorPlaceholder: 'लेखकस्य नाम' },
             { code: 'es', name: 'Spanish (Español)', qid: 'Q1321', hasScriptOption: false, placeholder: 'Libro de ejemplo', authorPlaceholder: 'Nombre del autor' },
             { code: 'fr', name: 'French (Français)', qid: 'Q150', hasScriptOption: false, placeholder: 'Livre exemple', authorPlaceholder: 'Nom de l\'auteur' },
@@ -241,7 +610,7 @@
             { code: 'ko', name: 'Korean (한국어)', qid: 'Q9176', hasScriptOption: false, placeholder: '예제 책', authorPlaceholder: '저자 이름' },
             { code: 'ar', name: 'Arabic (العربية)', qid: 'Q13955', hasScriptOption: false, placeholder: 'كتاب مثال', authorPlaceholder: 'اسم المؤلف' },
             { code: 'ru', name: 'Russian (Русский)', qid: 'Q7737', hasScriptOption: false, placeholder: 'Пример книги', authorPlaceholder: 'Имя автора' },
-            { code: 'pt', name: 'Portuguese (Português)', qid: 'Q5146', hasScriptOption: false, placeholder: 'Livro de ejemplo', authorPlaceholder: 'Nome do autor' },
+            { code: 'pt', name: 'Portuguese (Português)', qid: 'Q5146', hasScriptOption: false, placeholder: 'Livro de exemplo', authorPlaceholder: 'Nome do autor' },
             { code: 'it', name: 'Italian (Italiano)', qid: 'Q652', hasScriptOption: false, placeholder: 'Libro di esempio', authorPlaceholder: 'Nome dell\'autore' }
           ];
 
@@ -271,61 +640,81 @@
             return year <= 2006 ? 'P957' : 'P212';
           };
 
+          const cleanCommonsFilename = (input) => {
+            if (!input) return '';
+            let val = input.trim();
+            val = val.replace(/^https?:\/\/commons\.wikimedia\.org\/wiki\/File:/i, '');
+            val = val.replace(/^https?:\/\/commons\.wikimedia\.org\/wiki\//i, '');
+            val = val.replace(/^File:/i, '');
+            val = val.replace(/_/g, ' ');
+            return val.trim();
+          };
+
           const generateQuickStatements = () => {
             const hasLocalLang = formData.secondLangCode !== 'none';
-            const isLocalAuthorRequired = hasLocalLang && !formData.authorQid;
             
-            if (!formData.labelEn || !formData.authorName || (isLocalAuthorRequired && !formData.secondLangAuthorName)) {
+            if (mode === 'edition_only' && !existingWorkQid) {
+              return '';
+            }
+
+            if (!formData.labelEn || !formData.authorName || !formData.numberOfPages || !formData.wikisourceUrl) {
+              return '';
+            }
+
+            if (hasLocalLang && (!formData.secondLangLabel || !formData.secondLangAuthorName)) {
               return '';
             }
 
             let qs = '';
             const workP31 = 'Q47461344';
             const editionP31 = 'Q3331189';
+            const selectedLang = getSelectedLanguage();
             
             // Work Item
-            qs += 'CREATE\n';
-            qs += `LAST|Len|"${formData.labelEn}"\n`;
-            if (hasLocalLang && formData.secondLangLabel) {
-              qs += `LAST|L${formData.secondLangCode}|"${formData.secondLangLabel}"\n`;
-            }
-            
-            const workDescEn = `work by ${formData.authorName}`;
-            qs += `LAST|Den|"${workDescEn}"\n`;
-            if (hasLocalLang && formData.secondLangLabel && formData.secondLangAuthorName) {
-              const secondLangDescMap = {
-                'pa': `${formData.secondLangAuthorName} ਦੀ ਰਚਨਾ`,
-                'hi': `${formData.secondLangAuthorName} की रचना`,
-                'ur': `${formData.secondLangAuthorName} کی تخلیق`
-              };
-              const secondLangDesc = secondLangDescMap[formData.secondLangCode] || `work by ${formData.secondLangAuthorName}`;
-              qs += `LAST|D${formData.secondLangCode}|"${secondLangDesc}"\n`;
-            }
-            
-            qs += `LAST|P31|${workP31}\n`;
-            
-            if (formData.authorQid) {
-              qs += `LAST|P50|${formData.authorQid}\n`;
-            } else {
-              qs += `LAST|P2093|"${formData.authorName}"\n`;
-            }
-            
-            const selectedLang = getSelectedLanguage();
-            if (selectedLang && hasLocalLang) {
-              if (selectedLang.hasScriptOption && formData.secondLangCode === 'pa') {
-                qs += `LAST|P407|${selectedLang.qid}|P282|${formData.punjabiScript}\n`;
-              } else {
-                qs += `LAST|P407|${selectedLang.qid}\n`;
+            if (mode === 'both') {
+              qs += 'CREATE\n';
+              qs += `LAST|Len|"${formData.labelEn}"\n`;
+              if (hasLocalLang && formData.secondLangLabel) {
+                qs += `LAST|L${formData.secondLangCode}|"${formData.secondLangLabel}"\n`;
               }
+              
+              const workDescEn = `work by ${formData.authorName}`;
+              qs += `LAST|Den|"${workDescEn}"\n`;
+              if (hasLocalLang && formData.secondLangLabel && formData.secondLangAuthorName) {
+                const secondLangDescMap = {
+                  'pa': `${formData.secondLangAuthorName} ਦੀ ਰਚਨਾ`,
+                  'hi': `${formData.secondLangAuthorName} की रचना`,
+                  'ur': `${formData.secondLangAuthorName} کی تخلیق`,
+                  'bn': `${formData.secondLangAuthorName}-এর কাজ`
+                };
+                const secondLangDesc = secondLangDescMap[formData.secondLangCode] || `work by ${formData.secondLangAuthorName}`;
+                qs += `LAST|D${formData.secondLangCode}|"${secondLangDesc}"\n`;
+              }
+              
+              qs += `LAST|P31|${workP31}\n`;
+              
+              if (formData.authorQid) {
+                qs += `LAST|P50|${formData.authorQid}\n`;
+              } else {
+                qs += `LAST|P2093|"${formData.authorName}"\n`;
+              }
+              
+              if (selectedLang && hasLocalLang) {
+                if (selectedLang.hasScriptOption && formData.secondLangCode === 'pa') {
+                  qs += `LAST|P407|${selectedLang.qid}|P282|${formData.punjabiScript}\n`;
+                } else {
+                  qs += `LAST|P407|${selectedLang.qid}\n`;
+                }
+              }
+              
+              if (hasLocalLang && formData.secondLangLabel) {
+                qs += `LAST|P1476|${formData.secondLangCode}:"${formData.secondLangLabel}"\n`;
+              } else if (!hasLocalLang && formData.labelEn) {
+                qs += `LAST|P1476|en:"${formData.labelEn}"\n`;
+              }
+              
+              qs += '\n';
             }
-            
-            if (hasLocalLang && formData.secondLangLabel) {
-              qs += `LAST|P1476|${formData.secondLangCode}:"${formData.secondLangLabel}"\n`;
-            } else if (!hasLocalLang && formData.labelEn) {
-              qs += `LAST|P1476|en:"${formData.labelEn}"\n`;
-            }
-            
-            qs += '\n';
             
             // Edition Item
             qs += 'CREATE\n';
@@ -347,7 +736,10 @@
                   : `${formData.secondLangAuthorName} की रचना का संस्करण`,
                 'ur': formData.publicationYear
                   ? `${formData.secondLangAuthorName} کی تخلیق کا ${formData.publicationYear} ایڈیشن`
-                  : `${formData.secondLangAuthorName} کی تخلیق کا ایڈیشن`
+                  : `${formData.secondLangAuthorName} کی تخلیق کا ایڈیشن`,
+                'bn': formData.publicationYear
+                  ? `${formData.secondLangAuthorName}-এর কাজের ${formData.publicationYear} সংস্করণ`
+                  : `${formData.secondLangAuthorName}-এর কাজের সংস্করণ`
               };
               const editionDesc = editionDescMap[formData.secondLangCode] || 
                 `${yearPart}edition of work by ${formData.secondLangAuthorName}`;
@@ -356,10 +748,22 @@
             
             qs += `LAST|P31|${editionP31}\n`;
             
+            if (mode === 'edition_only' && existingWorkQid && isWorkVerified) {
+              qs += `LAST|P629|${existingWorkQid}\n`;
+            }
+
             if (formData.authorQid) {
               qs += `LAST|P50|${formData.authorQid}\n`;
             } else {
               qs += `LAST|P2093|"${formData.authorName}"\n`;
+            }
+
+            if (formData.editorQid) {
+              qs += `LAST|P98|${formData.editorQid}\n`;
+            }
+
+            if (formData.translatorQid) {
+              qs += `LAST|P655|${formData.translatorQid}\n`;
             }
             
             if (selectedLang && hasLocalLang) {
@@ -396,6 +800,15 @@
             }
             if (formData.wikisourceUrl) {
               qs += `LAST|P1957|"${formData.wikisourceUrl}"\n`;
+            }
+
+            const cleanFile = cleanCommonsFilename(formData.commonsFile);
+            if (cleanFile) {
+              if (formData.titlePageNumber && formData.titlePageNumber.trim()) {
+                qs += `LAST|P996|"${cleanFile}"|P4714|"${formData.titlePageNumber.trim()}"\n`;
+              } else {
+                qs += `LAST|P996|"${cleanFile}"\n`;
+              }
             }
             
             return qs;
@@ -438,7 +851,7 @@
                   <div className="flex justify-between items-center mb-6">
                     <div>
                       <h1 className="text-3xl font-bold text-indigo-900 dark:text-indigo-300 mb-2">Wikidata Book Itemizer</h1>
-                      <p className="text-gray-600 dark:text-gray-300">Easily Create work and edition items</p>
+                      <p className="text-gray-600 dark:text-gray-300">Easily create work and edition items on Wikidata</p>
                     </div>
                     <button onClick={toggleDarkMode} className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                       {darkMode ? (
@@ -448,8 +861,113 @@
                       )}
                     </button>
                   </div>
+
+                  <div className="flex p-1 space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg mb-6">
+                    <button
+                      type="button"
+                      onClick={() => setMode('both')}
+                      className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
+                        mode === 'both'
+                          ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-300 shadow'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-200'
+                      }`}
+                    >
+                      Create Both (Work & Edition)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMode('edition_only')}
+                      className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
+                        mode === 'edition_only'
+                          ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-300 shadow'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-200'
+                      }`}
+                    >
+                      Create Only Edition (Work Already Exists)
+                    </button>
+                  </div>
                   
                   <div className="space-y-6">
+                    {mode === 'edition_only' && (
+                      <div className="p-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg">
+                        <div className="flex justify-between items-center mb-1">
+                          <h3 className="text-md font-semibold text-indigo-900 dark:text-indigo-200">
+                            Search Existing Written Work (P629) *
+                          </h3>
+                          <span className="text-xs text-indigo-600 dark:text-indigo-300 font-medium bg-indigo-100 dark:bg-indigo-900/60 px-2 py-0.5 rounded">
+                            Filtered: Written, Literary, Collective Works & Books
+                          </span>
+                        </div>
+                        <div className="relative" ref={workSearchRef}>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={existingWorkQid ? `${existingWorkQid} (${workSearchQuery})` : workSearchQuery}
+                              onChange={(e) => {
+                                if (!existingWorkQid) handleWorkSearch(e.target.value);
+                              }}
+                              onFocus={() => {
+                                if (!existingWorkQid && workSearchQuery.length >= 2) setShowWorkResults(true);
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 pr-10"
+                              placeholder="Search work title or paste QID (e.g., Q136290840)..."
+                              required
+                            />
+                            {existingWorkQid && (
+                              <button
+                                type="button"
+                                onClick={clearWorkSearch}
+                                className="absolute right-2 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                title="Clear selection"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            )}
+                            {workLoading && (
+                              <div className="absolute right-2 top-2">
+                                <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                              </div>
+                            )}
+                          </div>
+
+                          {showWorkResults && workSearchResults.length > 0 && (
+                            <div 
+                              ref={workDropdownRef}
+                              onScroll={handleWorkScroll}
+                              className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-64 overflow-y-auto"
+                            >
+                              {workSearchResults.map((result) => (
+                                <div
+                                  key={result.id}
+                                  onClick={() => selectWork(result)}
+                                  className="px-4 py-3 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                                >
+                                  <div className="font-medium text-gray-900 dark:text-gray-100">
+                                    {result.label} <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">({result.id})</span>
+                                  </div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-300">{result.description}</div>
+                                </div>
+                              ))}
+                              {workLoading && (
+                                <div className="py-2 text-center text-xs text-indigo-600 dark:text-indigo-300 font-medium">
+                                  Loading more works...
+                                </div>
+                              )}
+                              {!workHasMore && workSearchResults.length > 0 && (
+                                <div className="py-2 text-center text-xs text-gray-400 dark:text-gray-500">
+                                  End of results
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Scroll down to load more results. Selecting a work will auto-fill available language and title details.
+                        </p>
+                      </div>
+                    )}
+
                     <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
                       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Labels</h3>
                       <div className="space-y-4">
@@ -466,9 +984,9 @@
                           </div>
                           {formData.secondLangCode !== 'none' && (
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Label in Local Language</label>
-                              <input type="text" value={formData.secondLangLabel} onChange={(e) => setFormData({...formData, secondLangLabel: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder={selectedLanguage?.placeholder || 'e.g., Example Book'} />
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Will be used for Title (P1476) property in both items</p>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Label in Local Language *</label>
+                              <input type="text" value={formData.secondLangLabel} onChange={(e) => setFormData({...formData, secondLangLabel: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder={selectedLanguage?.placeholder || 'e.g., Example Book'} required />
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Will be used for Title (P1476) property</p>
                             </div>
                           )}
                         </div>
@@ -484,7 +1002,7 @@
                     </div>
 
                     <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
-                      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Author Information</h3>
+                      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Authors & Contributors</h3>
                       <div className="space-y-4">
                         <div className="relative" ref={authorSearchRef}>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Author Q-ID</label>
@@ -518,11 +1036,66 @@
                         </div>
                         {formData.secondLangCode !== 'none' && (
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Author Name in Local Language {!formData.authorQid && '*'}</label>
-                            <input type="text" value={formData.secondLangAuthorName} onChange={(e) => setFormData({...formData, secondLangAuthorName: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder={selectedLanguage?.authorPlaceholder || 'e.g., Author Name'} required={!formData.authorQid} />
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formData.authorQid ? 'Auto-filled from Wikidata or edit manually' : 'Mandatory for local language descriptions when no Q-ID is provided'}</p>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Author Name in Local Language *</label>
+                            <input type="text" value={formData.secondLangAuthorName} onChange={(e) => setFormData({...formData, secondLangAuthorName: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder={selectedLanguage?.authorPlaceholder || 'e.g., Author Name'} required />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Required for generating local language descriptions</p>
                           </div>
                         )}
+
+                        <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Editor (P98)</label>
+                          <div className="relative" ref={editorSearchRef}>
+                            <input type="text" value={formData.editorQid ? `${formData.editorQid} (${editorSearchQuery})` : editorSearchQuery} onChange={(e) => { if (!formData.editorQid) handleEditorSearch(e.target.value); }} onFocus={() => { if (!formData.editorQid && editorSearchQuery.length >= 2) setShowEditorResults(true); }} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 pr-10" placeholder="Search for editor (Q-ID)..." />
+                            {formData.editorQid && (
+                              <button type="button" onClick={clearEditorSearch} className="absolute right-2 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Clear selection">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            )}
+                            {editorLoading && (
+                              <div className="absolute right-2 top-2">
+                                <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                              </div>
+                            )}
+                            {showEditorResults && editorSearchResults.length > 0 && (
+                              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                {editorSearchResults.map((result) => (
+                                  <div key={result.id} onClick={() => selectEditor(result)} className="px-4 py-3 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0">
+                                    <div className="font-medium text-gray-900 dark:text-gray-100">{result.label} <span className="text-sm text-gray-500 dark:text-gray-400">({result.id})</span></div>
+                                    <div className="text-sm text-gray-600 dark:text-gray-400">{result.description}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Translator (P655)</label>
+                          <div className="relative" ref={translatorSearchRef}>
+                            <input type="text" value={formData.translatorQid ? `${formData.translatorQid} (${translatorSearchQuery})` : translatorSearchQuery} onChange={(e) => { if (!formData.translatorQid) handleTranslatorSearch(e.target.value); }} onFocus={() => { if (!formData.translatorQid && translatorSearchQuery.length >= 2) setShowTranslatorResults(true); }} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 pr-10" placeholder="Search for translator (Q-ID)..." />
+                            {formData.translatorQid && (
+                              <button type="button" onClick={clearTranslatorSearch} className="absolute right-2 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Clear selection">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            )}
+                            {translatorLoading && (
+                              <div className="absolute right-2 top-2">
+                                <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                              </div>
+                            )}
+                            {showTranslatorResults && translatorSearchResults.length > 0 && (
+                              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                {translatorSearchResults.map((result) => (
+                                  <div key={result.id} onClick={() => selectTranslator(result)} className="px-4 py-3 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0">
+                                    <div className="font-medium text-gray-900 dark:text-gray-100">{result.label} <span className="text-sm text-gray-500 dark:text-gray-400">({result.id})</span></div>
+                                    <div className="text-sm text-gray-600 dark:text-gray-400">{result.description}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
                       </div>
                     </div>
 
@@ -577,8 +1150,8 @@
                             <input type="text" value={formData.publicationYear} onChange={handleYearChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="e.g., 2024" maxLength="4" />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Number of Pages (P1104)</label>
-                            <input type="text" value={formData.numberOfPages} onChange={handlePagesChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="e.g., 256" />
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Number of Pages (P1104) *</label>
+                            <input type="text" value={formData.numberOfPages} onChange={handlePagesChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="e.g., 256" required />
                           </div>
                         </div>
                         <div>
@@ -586,9 +1159,85 @@
                           <input type="text" value={formData.isbn} onChange={(e) => setFormData({...formData, isbn: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder={isbnProperty === 'P957' ? 'e.g., 0-123-45678-9' : 'e.g., 978-0-123-45678-9'} />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Wikisource Index Page URL (P1957)</label>
-                          <input type="url" value={formData.wikisourceUrl} onChange={(e) => setFormData({...formData, wikisourceUrl: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="e.g., https://wikisource.org/wiki/Index:Example.pdf" />
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Wikisource Index Page URL (P1957) *</label>
+                          <input type="url" value={formData.wikisourceUrl} onChange={(e) => setFormData({...formData, wikisourceUrl: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="e.g., https://wikisource.org/wiki/Index:Example.pdf" required />
                         </div>
+                        
+                        {/* Live Searchable Wikimedia Commons File (P996) and Title Page Number (P4714) */}
+                        <div className="grid md:grid-cols-3 gap-4 pt-2 border-t border-gray-100 dark:border-gray-700">
+                          <div className="md:col-span-2 relative" ref={commonsSearchRef}>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Wikimedia Commons File (P996)</label>
+                            <div className="relative">
+                              <input 
+                                type="text" 
+                                value={formData.commonsFile ? formData.commonsFile : commonsSearchQuery} 
+                                onChange={(e) => {
+                                  if (!formData.commonsFile) handleCommonsSearch(e.target.value);
+                                }} 
+                                onFocus={() => {
+                                  if (!formData.commonsFile && commonsSearchQuery.length >= 2) setShowCommonsResults(true);
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 pr-10" 
+                                placeholder="Search files on Wikimedia Commons..." 
+                              />
+                              {formData.commonsFile && (
+                                <button
+                                  type="button"
+                                  onClick={clearCommonsFile}
+                                  className="absolute right-2 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                  title="Clear file"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                              )}
+                              {commonsLoading && (
+                                <div className="absolute right-2 top-2">
+                                  <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                </div>
+                              )}
+                            </div>
+
+                            {showCommonsResults && commonsSearchResults.length > 0 && (
+                              <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                {commonsSearchResults.map((result, idx) => (
+                                  <div
+                                    key={idx}
+                                    onClick={() => selectCommonsFile(result)}
+                                    className="px-4 py-2 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0 flex items-center gap-3"
+                                  >
+                                    {result.thumb ? (
+                                      <img src={result.thumb} alt="" className="w-10 h-10 object-cover rounded flex-shrink-0 bg-gray-100" />
+                                    ) : (
+                                      <div className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded flex-shrink-0 flex items-center justify-center text-xs text-gray-500">
+                                        File
+                                      </div>
+                                    )}
+                                    <div className="overflow-hidden">
+                                      <div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate" title={result.title}>
+                                        {result.title}
+                                      </div>
+                                      <div className="text-xs text-gray-500 dark:text-gray-400">Wikimedia Commons (NS 6)</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Live search files on Wikimedia Commons (edition only)</p>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title Page Number (P4714)</label>
+                            <input 
+                              type="text" 
+                              value={formData.titlePageNumber} 
+                              onChange={(e) => setFormData({...formData, titlePageNumber: e.target.value})} 
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" 
+                              placeholder="e.g., 5" 
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Qualifier for P996</p>
+                          </div>
+                        </div>
+
                       </div>
                     </div>
                   </div>
@@ -606,7 +1255,9 @@
                   </div>
                   
                   <pre className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md p-4 overflow-x-auto text-sm font-mono whitespace-pre-wrap min-h-[200px] text-gray-900 dark:text-gray-100 mb-6">
-                    {output || 'Fill in required fields to generate QuickStatements...'}
+                    {output || (mode === 'edition_only' && !existingWorkQid 
+                      ? 'Please search and select an existing Work item first...' 
+                      : 'Fill in required fields (* marked) to generate QuickStatements...')}
                   </pre>
 
                   <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-6">
@@ -614,15 +1265,24 @@
                       <div>
                         <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-3">Auto-generated descriptions:</h4>
                         <ul className="space-y-2">
-                          <li><strong>Work:</strong> "work by {formData.authorName || '[author name]'}"</li>
+                          {mode === 'both' && (
+                            <li><strong>Work:</strong> "work by {formData.authorName || '[author name]'}"</li>
+                          )}
                           <li><strong>Edition:</strong> "{formData.publicationYear || '[year]'} edition of work by {formData.authorName || '[author name]'}"</li>
                         </ul>
                       </div>
                       <div>
                         <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-3">Properties included:</h4>
                         <ul className="list-disc list-inside space-y-1">
-                          <li>P31 = Instance of (Q47461344 work, Q3331189 edition)</li>
+                          <li>P31 = Instance of ({mode === 'both' ? 'Q47461344 work, ' : ''}Q3331189 edition)</li>
+                          {mode === 'edition_only' && (
+                            <li>
+                              P629 = Edition or translation of {isWorkVerified ? `(${existingWorkQid || '[Work QID]'})` : '(Skipped: not a verified work subclass)'}
+                            </li>
+                          )}
                           <li>P50 = Author (Q-ID) OR P2093 = Author name string</li>
+                          <li>P98 = Editor (edition only, if provided)</li>
+                          <li>P655 = Translator (edition only, if provided)</li>
                           <li>P123 = Publisher (edition only)</li>
                           <li>P291 = Place of publication (edition only)</li>
                           <li>P407 = Language (with P282 for Punjabi script)</li>
@@ -631,6 +1291,7 @@
                           <li>P1104 = Number of pages (edition only)</li>
                           <li>P1476 = Title (local label or English fallback)</li>
                           <li>P1957 = Wikisource index URL (edition only)</li>
+                          <li>P996 = Wikimedia Commons file (with optional P4714 title page number)</li>
                         </ul>
                       </div>
                     </div>
