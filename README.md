@@ -161,7 +161,7 @@ Made with ❤️ by [Kuldeep](https://meta.wikimedia.org/wiki/User:Kuldeepburjbh
 
 ## 📄 License
 
-MIT License. Free to use and modify.
+GNU General Public License v3.0.
 
 ---
 
